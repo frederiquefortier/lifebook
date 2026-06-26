@@ -33,6 +33,157 @@ Track AI-assisted development sessions with summaries, successes, challenges, an
 
 <!-- Add new entries below this line, newest first -->
 
+### 2026-06-25 - Themes seed: define the gate, freeze the list, full-life coverage
+
+**What We Worked On:**
+- Reviewed and redesigned `data/seed/themes.csv` before sealing it, grilling each decision
+  one at a time. Net path: a 22-row provisional set → **21 frozen, full-life themes**.
+- **Defined the gate first (the load-bearing move):** *a theme is an aboutness* — a subject
+  an entry is *about* — **not** a mode of writing, a significance level, or a feeling. This
+  test drove every cut and add.
+- **Cut the leaks the gate exposes:** cross-dimension duplicates `emotions` and `gratitude`
+  (`gratitude` is already an emotion); non-aboutness pseudo-themes `reflections` (a writing
+  *mode*) and `daily-life` (a *significance level*, the worst offender — would co-fire on most
+  entries). Collapsed the fuzzy introspection cluster `identity`/`mindset`/`reflections`/
+  `meaning` → `identity` + `meaning`.
+- **Policy reversal → [ADR-012]:** *frozen meanings, append-only, full-life-anticipated, no
+  `other`*. This **amends ADR-005** (drops bootstrap-from-corpus-then-freeze, versioned-growth-
+  as-the-plan, and the `other` escape hatch). Consequence recorded for the pipeline: the
+  classifier must be allowed to emit **zero** themes and never forced to pick.
+- **Full-life coverage:** added `spirituality`, `parenting`, `sexuality`, `society`, `leisure`,
+  `body`; re-scoped `family` (→ origins/kin) and `love` (→ couple) so `parenting` and
+  `sexuality` get clean edges.
+- **`ambition` → `direction`/Direction de vie:** renamed to shed the success/performance
+  connotation and absorb life pivots. Rejected `projects` (would double-tag every domain theme)
+  and a standalone `transitions` theme (significance-level cousin of `daily-life`).
+- **`society` broadened** from civic-participation to also own the outward gaze (worldview,
+  social critique, ideologies, collective identity).
+- **Boundary/wording fixes caught on re-reading:** narrowed `grief` off "transition/changement"
+  creep; depluralized circular `identity`/`family` defs; split the `health`/`habits` seam
+  ("hygiène de vie" → discipline); and — after the rename — removed "direction de vie" from the
+  `meaning` def, which had started revendicating the new `direction` theme's territory.
+- **Slug audit:** 21 unique, convention-consistent (lowercase single words, no separators);
+  only `grief` collides with an `nsfw_tags` slug — intentional and documented (orthogonal axes,
+  separate tables).
+- **Applied across 4 files:** rewrote `themes.csv`, wrote ADR-012, trimmed the "provisional/
+  bootstrap" framing out of `data/seed/README.md`, and in `improvements.md` superseded the
+  corpus-bootstrap task + updated the classifier task (allow zero labels).
+
+**What Went Well:**
+- Writing the *definition of a theme* before touching the list turned vague "feels redundant"
+  intuitions into a sharp, repeatable test — the aboutness gate did the actual work.
+- Cross-checking each label against the *other* dimensions caught the duplicates fast
+  (`gratitude` already an emotion; `grief` shared with nsfw is fine because nsfw is an
+  orthogonal sensitivity axis).
+
+**What Could We Do Better:**
+- Same root cause as the emotions session: the provisional set carried errors (`emotions`,
+  `gratitude`, `reflections`, `daily-life`) precisely because it was drafted before a
+  definition existed and without cross-checking the other dimensions. Define the gate, then
+  draft the list — not the reverse.
+
+**Friction Points:**
+- Scope/wording collisions only surfaced on a final re-read: the `ambition → direction` rename
+  silently invalidated the `meaning` def, which still said "direction de vie." A rename needs a
+  follow-up pass over every *other* theme's definition for the old term.
+
+**Key Takeaways:**
+- **A theme is an aboutness** — not a mode, a significance level, or a feeling. Cross-dimension
+  slug overlap is allowed because emotions/nsfw are orthogonal axes, not competing subjects.
+- **Frozen meanings + append-only + no `other`** means the pipeline must support an entry with
+  *no* theme (the m2m join makes zero rows the honest representation) and must never force a pick.
+- For a lifetime archive, freeze the *meaning*, not the *size*: anticipate the full arc now, let
+  unused themes sit, and only ever **append** a genuinely new life-domain.
+
+### 2026-06-25 - Emotions seed: 2-D mood meter, 9-family wheel, "love is not an emotion"
+
+**What We Worked On:**
+- Reviewed and redesigned `data/seed/emotions.csv` before its first seed. Grilled every
+  decision one at a time ([ADR-011]).
+- **Vocabulary** → **35 emotions** (from a 32-entry draft): pruned trait-like entries
+  (`créativité`, `bienveillance`) and redundant near-synonyms (`appreciation`, `power`,
+  `frustration`, `exclusion`); added memoir-relevant gaps (`nostalgia`, `pride`, `relief`,
+  `serenity`, `regret`, `awe`, `surprise`) and a `disgust`/`contempt` pair.
+- **Slugs** → English **nouns** (resolving an adjective/noun drift vs the doc's examples);
+  `name`/`definition` stay French-first (ADR-007).
+- **2-D mood meter:** added `arousal` (0..1) alongside `valence`, **reversing ADR-005's
+  valence-only choice** (the cheap, pre-data moment per ADR-010). Valence recalibrated
+  symmetric, full ±1.0 used (`affection` +1.0 ↔ `powerlessness` −1.0).
+- **9-family wheel** via a new `family` column — pleasant split 3 ways (Joie / Tendresse /
+  Sérénité) to match the 5 unpleasant families, avoiding Ekman's negativity bias on a
+  grouped chart.
+- **Dimensional clean-up:** `love`/Amour removed as an emotion — its senses route to where
+  they belong (felt warmth = `affection`; the bond = `people`+relationship_type; love-as-
+  subject = the existing `love` **theme**). Confirmed "Suisse 2026" is an **event**,
+  "voyage" a **theme** — no free-form tags.
+- **Applied across 6 files:** rewrote the CSV, added `arousal`+`family` to `schema.sql`,
+  extended `seed_labels.py`, updated `database.md`, wrote ADR-011 (+ superseded note on
+  ADR-005), and refreshed the stale `test_db_foundation.py` assertions. Full suite green.
+
+**What Went Well:**
+- One-decision-at-a-time grilling kept a wide design space (vocabulary, slugs, scale,
+  families, balance) tractable and surfaced the real architectural reversal (arousal) and
+  the conceptual error (love-as-emotion) deliberately rather than by accident.
+- The "who / felt / about / which-happening" test gave a reusable rule for keeping people,
+  emotions, themes, and events from bleeding into each other.
+
+**What Could We Do Better:**
+- The author had to catch the love/emotion conflation — the first family proposals carried
+  "Amour" as a family even though `love` already existed as a theme. Should cross-check a
+  new label against the *other* dimensions' existing lists before proposing it.
+
+**Friction Points:**
+- The seed tests were already stale (asserted 6 emotions vs a 32-row CSV) and `themes.csv`
+  had **independently grown 7 → 22 rows** outside the session — both tripped the suite, so
+  the counts needed re-syncing. A seed-count test pinned to a hand-written number drifts
+  every time a CSV changes; consider deriving the expected count from the CSV instead.
+
+**Key Takeaways:**
+- **Capture granularity ≠ display granularity:** keep the rich 35-label list for tagging,
+  roll up to 9 families only for charts. You can aggregate up but never recover detail you
+  didn't capture — so resist shrinking the *list* to fix a *graph*.
+- Only **slugs** are costly to change post-seed (deprecate+insert by `slug`); `name`,
+  `valence`, `arousal`, `family` are re-tunable `UPDATE`s on every re-seed.
+- A label is only an *emotion* if it's a momentary felt state with an intensity — bonds,
+  subjects, and traits belong to other dimensions.
+
+### 2026-06-24 - Project setup: the data-layer foundation (first code)
+
+**What We Worked On:**
+- First code in the repo (previously docs-only). Built the **reproducible `life.db`
+  foundation** — the prerequisite for every other client (app, pipeline, publication).
+- **Tooling & layout:** uv + Python 3.12 ([ADR-008]); src-layout — `pyproject.toml` at
+  the repo root, `src/lifebook/` as the sole DB-writing package, `frontend/` + `data/` +
+  `tests/` at the root ([ADR-009]).
+- **`schema.sql`** — all 28 tables from database.md as production-grade SQLite DDL:
+  `AUTOINCREMENT` on every id, `created_at`/`updated_at` + `AFTER UPDATE` trigger on
+  every table, TEXT ISO-8601 dates with a `GLOB` shape check, FK `ON DELETE`
+  cascade/restrict rules, indexes, `PRAGMA user_version = 1`, inline seeds for
+  `entry_types` + `relationship_types`.
+- **Scripts (stdlib only):** `db.connect()` helper (enables `foreign_keys`), `build_db`
+  (refuse-unless-`--force`), `seed_labels` (CSV-authoritative upsert + deprecate/
+  reactivate), `seed_config` (reads gitignored `data/local/config.toml`).
+- **Seed CSVs** (French names/definitions, English slugs) for themes/emotions/nsfw_tags;
+  provisional emotion valences.
+- **pytest** smoke test (9 tests) + documented migrations cutover ([ADR-010]); synced
+  database.md and README.
+
+**What Went Well:**
+- Grilling out every schema decision *before* coding (id reuse, audit columns, FK delete
+  rules, date storage, status semantics) meant the DDL was written once, deliberately.
+- All-temp-DB tests let the suite run without touching the real `life.db`.
+
+**Friction Points:**
+- **GLOB vs LIKE wildcards:** first wrote the date check as `GLOB '____-__-__'`; GLOB uses
+  `?`/`*` (not `_`/`%`), so it rejected valid dates. Fixed to `GLOB '????-??-??'`. (Logged
+  in bugs.md.)
+
+**Key Takeaways:**
+- `connect()` centralizing `PRAGMA foreign_keys = ON` matters — FK enforcement is
+  per-connection in SQLite and silently off otherwise.
+- The build's refuse-unless-`--force` guard is the practical backstop for the ADR-010
+  "never destroy real data" rule.
+
 ### 2026-06-24 - Location & map module
 
 **What We Worked On:**

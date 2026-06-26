@@ -25,6 +25,227 @@ Document architectural choices with context, alternatives considered, and trade-
 
 <!-- Add new entries below this line, newest first -->
 
+### ADR-012: Themes — frozen, full-life, append-only, no `other` (2026-06-25)
+
+**Context:**
+- Seeding `data/seed/themes.csv` forced the question of what the theme list *is*. ADR-005
+  framed it as a **provisional starter set**, bootstrapped from a corpus sample and then
+  frozen, kept honest over time by **versioned growth** and an **`other` escape hatch**.
+- Reviewing the starter set surfaced a different intent: the author would rather settle a
+  **stable, full-life set now** — anticipating the whole arc of a life (including themes that
+  may go unused for years or never) — than discover it from an early, unrepresentative slice
+  of writing. A stable axis set makes decade-over-decade aggregation trivially honest.
+- The starter set also leaked across dimensions and within itself (an `emotions` theme
+  duplicating the emotions dimension; `gratitude` already an emotion; `reflections` and
+  `daily-life` describing a *mode* or a *significance level* rather than a subject; a fuzzy
+  introspection cluster `identity`/`mindset`/`reflections`/`meaning` that co-fired).
+
+**Decision:**
+- **Definition (the gate).** A **theme is an *aboutness*** — a subject an entry is *about*.
+  Not a mode of writing (`reflections`), not a significance level (`daily-life`), not a
+  feeling (those are the emotions dimension, ADR-011). Each theme owns a slice no other theme
+  or dimension owns. Every candidate must pass this test before entering the list.
+- **Frozen meanings, append-only.** A theme's `slug` and meaning are **immutable** once set —
+  a 2024 `health` tag must mean the same thing in 2044. The list may only **grow by appending**
+  a genuinely new life-domain (tracked by `list_version`, per ADR-005's schema); existing
+  meanings are never redrawn or deleted. Definitions may be *worded* more clearly without
+  changing scope.
+- **Full-life, anticipated now.** The list is built for a whole life up front, not bootstrapped
+  from a corpus sample. Unused themes are acceptable and expected; mis-bounded ones are not,
+  because the freeze makes a bad boundary permanent.
+- **No `other`.** ADR-005's uncategorized escape hatch is dropped. An entry that fits no theme
+  simply **carries no theme** — `entry_themes` is many-to-many, so zero rows is the natural,
+  honest representation. **Consequence for the pipeline:** the classifier and its confidence
+  gating must be allowed to emit *zero* themes and must never be built to force a pick.
+- **The list (21).** `identity`, `meaning`, `spirituality`, `family`, `parenting`, `love`,
+  `sexuality`, `friendship`, `society`, `work`, `direction`, `learning`, `creativity`,
+  `leisure`, `health`, `body`, `habits`, `finance`, `travel`, `home`, `grief`. Cross-dimension
+  slug overlap is allowed: `grief` is both a theme and an nsfw tag because nsfw is an orthogonal
+  *sensitivity* axis, not a competing subject.
+
+**Alternatives Considered:**
+- Bootstrap-then-freeze with versioned growth + `other` (ADR-005 as written) -> Defers the
+  hard boundary work to an early, unrepresentative corpus slice and leans on `other` as a
+  crutch; the author prefers to anticipate the full arc now and let unfitting entries stay
+  untagged.
+- A free-form / open theme list -> The typo/synonym rot ADR-005 exists to prevent.
+- Keep the fuzzy starter set (`emotions`, `reflections`, `daily-life`, the introspection four)
+  -> Themes that co-fire on most entries aggregate to noise; they fail the aboutness gate.
+
+**Consequences:**
+- One stable, full-life axis set; decade-over-decade theme charts are honest by construction.
+- The aboutness gate + frozen meanings keep boundaries clean and comparable for a lifetime.
+- This **amends ADR-005**: bootstrap-then-freeze, versioned-growth-as-the-plan, and the `other`
+  hatch are superseded by frozen/append-only/full-life/no-`other`. ADR-005's mechanics that
+  still hold — closed list, `list_version`, CSV-is-source / DB-is-runtime-copy — are unchanged.
+- Trade-off: the author must get the full-life boundaries right *now*; a missing domain can
+  only be appended later, never carved out of an existing theme's frozen meaning.
+
+---
+
+### ADR-011: Emotions — 2-D mood meter, 9-family wheel, and "love is not an emotion" (2026-06-25)
+
+**Context:**
+- Seeding `data/seed/emotions.csv` forced three latent decisions: how rich the discrete
+  emotion list should be, how it feeds the "emotional climate" graph, and where the line
+  sits between an *emotion* and the other entry dimensions (people, themes, events).
+- ADR-005 anchored each emotion with **valence only** and explicitly dropped arousal.
+  That collapses calm-vs-energetic states at the same valence (`serenity` ≈ `excitement`
+  on the curve) and, grouped by Ekman-style families, renders the *pleasant* side as one
+  flat block against a finely-split *unpleasant* side (Ekman is negativity-biased).
+- The seed list also mislabeled **`love`** as an emotion ("Amour"), conflating three
+  different things that already have homes in the schema.
+
+**Decision:**
+- **2-D mood meter.** Add an `arousal REAL` (0..1, calm..activated) column alongside
+  `valence` (−1..+1). The pair places each emotion on the valence×arousal plane; the
+  continuous curve still uses `valence` × per-entry `intensity`, with `arousal` available
+  for energy-aware views. (Done now, pre-data, per ADR-010 — post-cutover it would be a
+  migration.)
+- **35 emotions in a 9-family wheel.** Slugs are English **nouns** (matching the doc's own
+  examples and resolving an adjective/noun drift); `name`/`definition` stay French-first
+  (ADR-007). A `family TEXT` column groups the 35 into 9 families — `joy`, `tenderness`,
+  `serenity` (3 pleasant) · `sadness`, `anger`, `fear`, `disgust`, `shame` (5 unpleasant) ·
+  `surprise` (neutral) — each named after its prototype emotion. Splitting the pleasant
+  side into three matches the unpleasant side's granularity, so good times are as legible
+  as hard times on a grouped chart.
+- **"Love is not an emotion."** Drop `love`/Amour as both an emotion and a family. Its three
+  senses are routed to where they belong: the *felt warmth* is the `affection` emotion
+  (family `tenderness`); the *bond* is `people` + relationship_type; love *as a subject* is
+  the existing `love` **theme** (`themes.csv`). The same "who / felt / about / which
+  happening" test keeps people, emotions, themes, and events from bleeding into each other
+  (notably: "Suisse 2026" is an **event**, "voyage" is a **theme** — no free-form tags).
+- Values (valence/arousal/family) are re-tunable: `seed_labels.py` upserts them by `slug`
+  on every re-seed, so only slug changes are costly.
+
+**Alternatives Considered:**
+- Keep valence-only (ADR-005) -> Loses the calm/energetic axis permanently after data
+  exists; the cheap moment to add arousal is now.
+- A literal textbook wheel (Plutchik-8 / Ekman-6) -> `trust`/`disgust`/`anticipation` fit a
+  French memoir poorly, and both lump `love` into `joy`; love/connection is a primary
+  storyline of an autobiography and earns its own family register.
+- Shrink the list to ~10 "big" emotions for a simpler graph -> Permanently lossy; you can
+  aggregate 35→9 for display but never recover `nostalgia`/`regret`/`relief` after the fact.
+  Capture granularity ≠ display granularity.
+- A free-form `tags` dimension -> Reintroduces the typo/synonym rot that closed `themes` +
+  dated `events` exist to prevent.
+
+**Consequences:**
+- The climate graph gains an energy axis and a balanced family rollup; the discrete list is
+  rich enough for a memoir without flattening the positive side.
+- Clean dimensional boundaries: each fact (who / felt / about / which happening) has exactly
+  one home, so the classifier and the author aren't choosing between overlapping systems.
+- Trade-off: the classifier must emit `arousal` as well as `valence`, and the family
+  taxonomy is one more curated column to keep coherent as the list evolves.
+
+---
+
+### ADR-010: Deferred schema migrations with a first-ingestion cutover (2026-06-24)
+
+**Context:**
+- The schema will evolve over a lifetime. While `life.db` holds no real data, the cheapest
+  way to change it is to edit `schema.sql` and rebuild. Once it holds irreplaceable
+  entries, that's destructive — changes must be additive and applied in place.
+
+**Decision:**
+- `schema.sql` is the authoritative **baseline**; the DB stamps `PRAGMA user_version = 1`.
+- **Pre-data phase (now):** edit `schema.sql` freely and rebuild with `build_db --force`.
+- **Cutover:** the first real ingestion of entries freezes `schema.sql`. From then on,
+  schema changes are **additive, numbered SQL migrations** (`migrations/0002_*.sql`, …),
+  each bumping `user_version`; `schema.sql` is never destructively edited again.
+- No migration framework is adopted yet (Alembic is SQLAlchemy-oriented; we use raw
+  `sqlite3`). A lightweight runner is added at cutover.
+
+**Alternatives Considered:**
+- Stand up migrations from day one -> Structure before it's needed; slows iteration while
+  the schema is still churning and there's nothing to lose.
+- Alembic now -> Heavy ORM dependency for a raw-`sqlite3` project.
+
+**Consequences:**
+- Fast iteration now, safety later, with a clearly defined switch-over moment.
+- Trade-off: the discipline of "never `--force` once data exists" must be remembered
+  (the `build_db` refuse-unless-`--force` guard backs it up).
+
+---
+
+### ADR-009: Repository layout — one `lifebook` Python package as the sole DB writer (2026-06-24)
+
+**Context:**
+- Code is starting. ADR-006 establishes that Python is the only language that writes
+  `life.db` and that the curation app's FastAPI backend *reuses* the processing layer.
+  The layout should encode that, not fight it.
+
+**Decision:**
+- Use the **src-layout**: `pyproject.toml` at the repo root, and `src/` holding *only*
+  the importable Python package. A single package **`lifebook`** is the only DB writer;
+  its subpackages are `db` (schema, build/seed, the shared `connect()` helper), and —
+  built later — `ingest`, `nlp`, `stats`, `export`, `api` (the FastAPI backend, *inside*
+  the package so it imports the pipeline directly).
+- The **React/TipTap frontend** is the one separate, non-Python piece: `frontend/` at
+  the repo root.
+- Non-code assets live at the repo root, not under `src/`: seed CSVs in `data/seed/`
+  (Git source of truth, ADR-005); all gitignored machine-local private state in
+  `data/local/` (ADR-004) — the `config.toml` inputs **and** `life.db` itself
+  (`data/local/life.db`).
+- Layout sketch:
+  ```
+  repo/  pyproject.toml  README.md  .gitignore  docs/
+         src/lifebook/{db,ingest,nlp,stats,export,api}/
+         frontend/   data/{seed,local}/   tests/
+  ```
+
+**Why src-layout (vs flat-layout):** keeping `src/` thin (package-only) means the code
+can't be imported from the working directory by accident — tests run against the
+*installed* package, catching packaging mistakes — and it avoids the repo-dir/package
+name repetition (`lifebook/lifebook/`) that a flat layout would produce.
+
+**Alternatives Considered:**
+- Split `db/` + `pipeline/` + `app/{backend,frontend}` -> The backend reuses the
+  pipeline, so it would import across sibling top-level dirs; a single package is cleaner
+  and avoids interpreter/import friction for a Python newcomer.
+- Flat `src/` (schema/scripts/data) -> Fine short-term but doesn't express the
+  package-vs-frontend boundary that's coming.
+
+**Consequences:**
+- Clean imports, one `pyproject.toml`, one DB-writing package; the only language boundary
+  (Python vs JS) is also the only directory boundary that matters.
+- Trade-off: a tighter coupling of backend and pipeline (by design — they share the DB
+  layer).
+
+---
+
+### ADR-008: Python tooling — uv, pinned to Python 3.12 (2026-06-24)
+
+**Context:**
+- The project needs a reproducible Python environment, runnable by someone new to Python,
+  on a Windows machine where `python` resolves to a stray 2.7 and only `py` finds 3.11.
+  That interpreter ambiguity is the classic beginner foot-gun.
+
+**Decision:**
+- Use **uv** for environment + dependency management. uv pins the interpreter
+  (`.python-version`) and `uv run` always uses the right one — no venv-activation ritual,
+  no "which Python" confusion. It writes standard `pyproject.toml`, so there's no lock-in.
+- Pin **Python 3.12** (uv fetches it): modern, with mature wheel support across the
+  spaCy / transformers / numpy stack the NLP steps will need, avoiding 3.13's bleeding-edge
+  wheel gaps.
+- The data-layer foundation has **no runtime dependencies** (stdlib `sqlite3` / `csv` /
+  `tomllib`); `pytest` is a dev dependency-group only.
+
+**Alternatives Considered:**
+- venv + pip -> Works and is universal, but re-exposes the interpreter-ambiguity foot-gun
+  this machine already demonstrates.
+- Poetry -> Heavier, slower resolver; uv covers the same ground faster.
+- Python 3.11 (already installed) / 3.13 (newest) -> 3.11 ages out sooner; 3.13 risks
+  ML-wheel gaps when the NLP work starts.
+
+**Consequences:**
+- One fast tool handles interpreter, venv, and deps reproducibly; trivial onboarding
+  (`uv sync`, `uv run …`).
+- Trade-off: uv is a newer tool, so some web answers still assume pip — mitigated by uv's
+  standard-file output and pip-compatibility.
+
+---
+
 ### ADR-007: Content is French — tooling must be French-first (2026-06-24)
 
 **Context:**
@@ -124,7 +345,7 @@ Document architectural choices with context, alternatives considered, and trade-
   - **Emotions** use a small discrete set, plus a per-emotion **valence** anchor
     (pleasant ↔ unpleasant) so a continuous "emotional climate" curve can be derived
     alongside the discrete labels. (Arousal was considered and dropped as
-    lower-value — see [improvements.md](../03_planning/improvements.md) if revisited.)
+    lower-value — **superseded by [ADR-011](#adr-011-emotions--2-d-mood-meter-9-family-wheel-and-love-is-not-an-emotion-2026-06-25), which adds it.**)
 - Tooling: a **local** open-weight LLM fed the list (returning labels +
   confidence + a supporting quote), optionally with an embeddings/similarity first
   pass as a cheap cross-check. Run locally so private content never leaves the machine.

@@ -1,0 +1,9 @@
+slug,name,definition,status
+sexual,Sexualité,"Contenu à caractère sexuel ou intime.",active
+substance_use,Consommation de substances,"Consommation d'alcool ou de drogues.",active
+violence,Violence,"Violence physique ou verbale.",active
+self_harm,Automutilation,"Automutilation ou idées suicidaires.",active
+abuse,Abus,"Abus, maltraitance ou exploitation.",active
+trauma,Traumatisme,"Événements traumatiques et leurs séquelles.",active
+mental_health,Santé mentale,"Souffrance ou troubles psychologiques.",active
+grief,Deuil,"Deuil et perte d'un proche.",active

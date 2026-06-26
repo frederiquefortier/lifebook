@@ -1,0 +1,36 @@
+slug,name,definition,status,valence,arousal,family
+joy,Joie,"Sentiment de bonheur, de plaisir ou de contentement.",active,0.85,0.6,joy
+excitement,Excitation,"Énergie positive liée à l’anticipation ou à l’enthousiasme.",active,0.7,0.9,joy
+awe,Émerveillement,"Émerveillement devant quelque chose de vaste, de beau ou de bouleversant.",active,0.85,0.7,joy
+playfulness,Espièglerie,"Élan léger et joueur, ouvert au plaisir et à la spontanéité.",active,0.5,0.6,joy
+curiosity,Curiosité,"Envie de découvrir, comprendre ou explorer quelque chose de nouveau.",active,0.3,0.55,joy
+pride,Fierté,"Satisfaction tirée de soi, de ses accomplissements ou de ceux qu’on aime.",active,0.7,0.55,joy
+courage,Courage,"Élan d’affronter une difficulté, un risque ou une peur.",active,0.6,0.6,joy
+confidence,Confiance,"Sentiment de sécurité intérieure, de capacité ou d’assurance face à une situation.",active,0.7,0.55,joy
+affection,Affection,"Élan de tendresse et de chaleur envers quelqu’un, ou sentiment d’être aimée.",active,1.0,0.45,tenderness
+belonging,Appartenance,"Sentiment d’être accueillie, incluse et à sa place parmi les autres.",active,0.8,0.3,tenderness
+gratitude,Gratitude,"Reconnaissance envers ce qu’on a reçu, vécu ou compris.",active,0.7,0.4,tenderness
+respect,Respect,"Sentiment d’être reconnue dans sa valeur, ses limites ou son importance.",active,0.6,0.35,tenderness
+serenity,Sérénité,"Calme, paix intérieure et contentement tranquille.",active,0.7,0.05,serenity
+relief,Soulagement,"Détente ressentie quand une tension, une peur ou une attente se dissipe.",active,0.5,0.25,serenity
+hope,Espoir,"Sentiment tourné vers la possibilité qu’une situation s’améliore.",active,0.6,0.45,serenity
+nostalgia,Nostalgie,"Douceur teintée de mélancolie en repensant à un moment ou un être du passé.",active,0.15,0.3,serenity
+sadness,Tristesse,"Peine, mélancolie ou sentiment de perte.",active,-0.7,0.3,sadness
+loneliness,Solitude,"Sentiment d’être seule, isolée ou émotionnellement déconnectée.",active,-0.6,0.25,sadness
+disappointment,Déception,"Tristesse ou frustration face à une attente non comblée.",active,-0.5,0.3,sadness
+hurt,Blessure,"Douleur émotionnelle causée par une parole, un rejet ou une situation difficile.",active,-0.7,0.45,sadness
+regret,Regret,"Souhait que les choses se soient passées autrement; remords doux ou amer.",active,-0.5,0.35,sadness
+boredom,Ennui,"Manque d’intérêt, de stimulation ou d’engagement dans une situation.",active,-0.2,0.1,sadness
+powerlessness,Impuissance,"Sentiment de ne pas avoir de contrôle ou de moyens d’agir.",active,-1.0,0.35,sadness
+anger,Colère,"Réaction intense face à une injustice, une contrariété ou une blessure.",active,-0.8,0.85,anger
+annoyance,Agacement,"Irritation face à une contrariété, une répétition ou une gêne.",active,-0.4,0.5,anger
+jealousy,Jalousie,"Crainte de perdre une place, un lien ou une attention au profit d’une autre.",active,-0.5,0.6,anger
+fear,Peur,"Réaction face à un danger réel ou imaginé.",active,-0.85,0.85,fear
+anxiety,Anxiété,"Inquiétude diffuse face à l’incertitude, au futur ou à une menace perçue.",active,-0.7,0.7,fear
+overwhelm,Submersion,"Impression d’être envahie par trop d’émotions, de pensées ou de responsabilités.",active,-0.8,0.8,fear
+disgust,Dégoût,"Rejet ou aversion face à quelque chose de répugnant, moralement ou physiquement.",active,-0.7,0.5,disgust
+contempt,Mépris,"Dédain ou sentiment de supériorité envers quelqu’un ou quelque chose.",active,-0.6,0.45,disgust
+shame,Honte,"Sentiment de honte lié à soi, à un geste ou au regard des autres.",active,-0.9,0.5,shame
+guilt,Culpabilité,"Sentiment d’avoir mal agi ou d’avoir manqué à ses valeurs.",active,-0.6,0.45,shame
+embarrassment,Gêne,"Malaise ressenti dans une situation inconfortable, exposante ou humiliante.",active,-0.5,0.55,shame
+surprise,Surprise,"Réaction vive face à l’inattendu, agréable ou non.",active,0.0,0.85,surprise

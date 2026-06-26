@@ -21,6 +21,33 @@ Design notes:
 
 ---
 
+## Schema conventions (how the DDL realizes this in SQLite)
+
+The tables below are described conceptually; the authoritative DDL is
+[`src/lifebook/db/schema.sql`](../../src/lifebook/db/schema.sql), built by
+`lifebook.db.build_db`. Conventions applied across the whole schema (ADR-008/009/010):
+
+- **Stamped `PRAGMA user_version = 1`** — the migration baseline (ADR-010).
+- **All `id` columns are `INTEGER PRIMARY KEY AUTOINCREMENT`** — ids are never reused,
+  honoring the "stable internal key, may have gaps" rule.
+- **Every table carries `created_at` and `updated_at`** (TEXT, ISO-8601 via
+  `CURRENT_TIMESTAMP`), even where not listed in the per-table columns below. An
+  `AFTER UPDATE` trigger per table keeps `updated_at` current (a `WHEN` guard prevents
+  trigger recursion).
+- **Dates are stored as `TEXT` in ISO-8601 `YYYY-MM-DD`** (SQLite has no native date
+  type). `date_precision` controls rendering. `entries.date` and `config.author_birthdate`
+  carry a `CHECK (… GLOB '????-??-??')` shape guard; `created_at`/`updated_at` are
+  datetime text.
+- **Foreign keys:** enforcement is per-connection, enabled by `lifebook.db.connect()`.
+  Join rows `ON DELETE CASCADE` with their `entries` row; references to dimension rows
+  (people / themes / emotions / places / events / nsfw_tags / categories / types) use
+  `ON DELETE RESTRICT` so a still-referenced dimension can't be deleted. Owned children
+  (`person_aliases`, `person_relationships`, `top_list_items`, `book_citations`,
+  `alphabet_items`, `bingo_cells`) cascade from their parent.
+- **Indexes** on `entries.date` and every FK column used for joins/lookups.
+
+---
+
 ## Project config
 
 ### `config`
@@ -187,7 +214,8 @@ never deleted, so historical tags stay valid).
 Examples: `identity`, `travel`, `ambition`, `family`, `creativity`, `grief`, `love`.
 
 ### `emotions`
-Runtime copy of the emotion list (seeded from `data/seed/emotions.csv`).
+Runtime copy of the emotion list (seeded from `data/seed/emotions.csv`). 35 felt states
+([ADR-011](decisions.md)).
 
 | Field | Type |
 |---|---|
@@ -197,11 +225,34 @@ Runtime copy of the emotion list (seeded from `data/seed/emotions.csv`).
 | definition | TEXT |
 | status | TEXT |
 | valence | REAL |
+| arousal | REAL |
+| family | TEXT |
 
-`valence` (pleasant ↔ unpleasant, e.g. −1…+1) is a per-emotion anchor for the
-continuous "emotional climate" curve — combined with each entry's `intensity` to get a
-smooth mood line — alongside the discrete labels.
-Examples: `joy`, `sadness`, `anxiety`, `anger`, `gratitude`, `excitement`.
+`valence` (unpleasant ↔ pleasant, −1…+1) and `arousal` (calm ↔ activated, 0…1) place each
+emotion on the 2-D **mood meter**: `valence` × each entry's `intensity` gives the smooth
+"emotional climate" curve, while `arousal` separates calm from energetic states at the same
+valence (e.g. `serenity` vs `excitement`). `family` is the emotion's slug in the **9-family
+wheel** (named after each prototype emotion), used to roll the 35 discrete labels up into
+readable grouped charts without losing capture detail:
+
+| Family | French | Tone |
+|---|---|---|
+| `joy` | Joie | active pleasant |
+| `tenderness` | Tendresse | felt warmth / connection |
+| `serenity` | Sérénité | calm pleasant |
+| `sadness` | Tristesse | low-energy unpleasant |
+| `anger` | Colère | activated unpleasant |
+| `fear` | Peur | threat |
+| `disgust` | Dégoût | aversion |
+| `shame` | Honte | self-conscious |
+| `surprise` | Surprise | neutral |
+
+The families split the *pleasant* side as finely as the *unpleasant* side (3 vs 5), avoiding
+the negativity bias of a raw Ekman-6 grouping. Slugs are English nouns; `name`/`definition`
+are French ([ADR-007](decisions.md)). **`love` is not here** — the felt warmth is `affection`
+(family `tenderness`); the *bond* is `people` + relationship_type; love *as a subject* is the
+`love` theme.
+Examples: `joy`, `sadness`, `anxiety`, `anger`, `gratitude`, `nostalgia`.
 
 ---
 

@@ -39,6 +39,11 @@ Track future enhancements and feature ideas. Review this file during planning se
 
 ### 2026-06-24 - Bootstrap the theme list from the corpus
 
+> **Superseded by [ADR-012](../01_building/decisions.md) (2026-06-25).** The author chose to
+> anticipate a stable, full-life theme set up front instead of discovering it from a corpus
+> sample, and dropped the `other` bucket. `data/seed/themes.csv` is frozen at 21 themes with
+> immutable, append-only meanings. Kept below for history.
+
 **Description:**
 - Before freezing the closed theme list (see [ADR-005](../01_building/decisions.md)),
   run a discovery pass over a representative sample of entries to find the *actual*
@@ -67,10 +72,10 @@ Track future enhancements and feature ideas. Review this file during planning se
   ([ADR-005](../01_building/decisions.md)).
 
 **Status:**
-- [x] Proposed
+- [ ] Proposed
 - [ ] In Progress
 - [ ] Completed
-- [ ] Deferred
+- [x] Deferred — superseded by ADR-012
 
 ---
 
@@ -93,6 +98,8 @@ Track future enhancements and feature ideas. Review this file during planning se
 - Store discrete emotion labels *and* the continuous `valence` score for smooth
   heatmaps / mood curves.
 - Stamp each tag with the `list_version` it was produced under.
+- Allow **zero** themes per entry — there is no `other` bucket; an entry that fits no theme
+  gets none ([ADR-012](../01_building/decisions.md)). Confidence gating must never force a pick.
 - Keep outputs as suggestions gated by `confidence`; spot-review low-confidence rows.
 - Build a small hand-labeled gold set (~100 entries) to measure accuracy and tune
   thresholds.
@@ -103,7 +110,7 @@ Track future enhancements and feature ideas. Review this file during planning se
 - [ ] Low - Future consideration
 
 **Dependencies:**
-- Frozen theme list (the bootstrap task above) and emotion set, seeded into the DB.
+- Frozen theme list ([ADR-012](../01_building/decisions.md)) and emotion set, seeded into the DB.
 - Populated `entries`; `entry_themes` / `entry_emotions` join tables.
 
 **Status:**
