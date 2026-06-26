@@ -1,18 +1,18 @@
 # Ingestion
 
-How existing writings get into `life.db`. This is the unglamorous majority of the work
-— getting messy, multi-source history cleanly into the schema. See
+How existing writings get into `life.db`. This is the unglamorous majority of the work:
+getting messy, multi-source history cleanly into the schema. See
 [architecture.md](architecture.md) for where this sits and [database.md](database.md)
 for the target tables.
 
 ## Sources
 
-The writings currently live in two places, in **two different shapes**:
+The writings currently live in two places, in two different shapes:
 
-- **Notion** — already split roughly the way we want (one item per piece), but most
+- **Notion:** already split roughly the way we want (one item per piece), but most
   items lack tags / people / emotions.
-- **Word documents in Google Drive** — the bulk, in a denser shape: a numbered entry
-  header followed by **several dated passages**, e.g.
+- **Word documents in Google Drive:** the bulk, in a denser shape. A numbered entry
+  header followed by several dated passages, e.g.
 
   ```
   Entré #184
@@ -23,23 +23,23 @@ The writings currently live in two places, in **two different shapes**:
   Lorem ipsum…
   ```
 
-Both are imported by Python scripts in the processing layer. After import **and
-verification**, the originals are retired (archived, then removed) — `life.db` becomes
+Both are imported by Python scripts in the processing layer. After import and
+verification, the originals are retired (archived, then removed). `life.db` becomes
 the source of truth, and keeping the cloud originals is redundant exposure
 ([ADR-004](decisions.md)).
 
-### The numbering scheme is filing, not storage
+### The numbering scheme is just filing
 The originals are filed with a manual numbering system (`Lettre 2.0.5`, where `2` = year
-2 / 2018, `0` = the monthly birth-calendar grouping, etc.). That scheme is **how the
-author organized files** — it is *not* stored. The DB stores atomic dated entries; the
-"month letter by personal year" grouping is reproduced later by **filtering** on date +
+2 / 2018, `0` = the monthly birth-calendar grouping, etc.). That scheme is how the
+author organized files. It is *not* stored. The DB stores atomic dated entries; the
+"month letter by personal year" grouping is reproduced later by filtering on date +
 personal time. Don't try to preserve the numbers.
 
 ## Two regimes
 
 1. **Backlog (one-time):** the years of existing Word + Notion content. Messy, varied
    formatting, inconsistent date conventions. This is where the hard parsing work is.
-2. **Steady-state (ongoing):** new entries created going forward — these come in
+2. **Steady-state (ongoing):** new entries created going forward. These come in
    through the [curation app](architecture.md#curation-app--capture--review), not this
    importer. Ingestion is mostly about the backlog.
 
@@ -49,10 +49,10 @@ personal time. Don't try to preserve the numbers.
    - Word: read `.docx` (e.g. `python-docx`), preserving entry boundaries.
    - Notion: export or pull via API; normalize blocks to text.
 2. **Delimit & split to one entry per date.** A single Word "Entré #N" with several
-   dated passages becomes **one `entries` row per date** (the atomic rule — see
+   dated passages becomes one `entries` row per date (the atomic rule, see
    [database.md](database.md)). The original entry number is dropped.
-3. **Parse dates + precision.** Normalize the varied (French) date formats — e.g. *12
-   janvier 2018* — to ISO `DATE` ([ADR-007](decisions.md)), and set `date_precision`
+3. **Parse dates + precision.** Normalize the varied (French) date formats (e.g. *12
+   janvier 2018*) to ISO `DATE` ([ADR-007](decisions.md)), and set `date_precision`
    (`day` / `week` / `month` / `year`): fun facts are often a week, books a month, the
    *fête* a year. Flag ambiguous/missing dates for manual fixing rather than guessing.
 4. **Clean.** Strip artifacts (encoding gremlins, stray formatting), keep the content.
@@ -64,7 +64,7 @@ personal time. Don't try to preserve the numbers.
 6. **Load.** Prose → `entries` (`nsfw_level` defaults to 0; tagged later). Structured
    types → their own tables (e.g. a book + its citations).
 7. **Stage analysis.** People / theme / emotion extraction runs over the prose entries
-   as *suggestions* (confidence-gated) for later human review — it finalizes nothing here.
+   as *suggestions* (confidence-gated) for later human review. It finalizes nothing here.
 
 ## People & alias resolution
 

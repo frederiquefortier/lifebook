@@ -2,7 +2,7 @@
 
 Covers: build (28 tables, inline seeds, user_version), label seeding counts,
 idempotency, the deprecate/reactivate sync rule, FK enforcement, and config seeding.
-Everything runs against temp databases — the real src/life.db is never touched.
+Everything runs against temp databases; the real src/life.db is never touched.
 """
 
 from __future__ import annotations

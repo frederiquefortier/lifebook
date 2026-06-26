@@ -45,8 +45,8 @@ Document new concepts, techniques, and knowledge gained. Reference this file to 
 - **`/` joins Path segments:** `REPO_ROOT / "data" / "seed"` ≈ `path.join(...)`, and it
   uses the OS-correct separator. UPPERCASE names = "constant" convention; leading `_`
   (e.g. `_DB_DIR`) = "internal, don't import elsewhere" convention.
-- **Functions & type hints:** `def connect(path: Path | str = LIFE_DB_PATH) -> sqlite3.Connection:`
-  — `path: Path | str` is a type hint (optional, TypeScript-style; `|` = "or"),
+- **Functions & type hints:** `def connect(path: Path | str = LIFE_DB_PATH) -> sqlite3.Connection:`.
+  Here `path: Path | str` is a type hint (optional, TypeScript-style; `|` = "or"),
   `= LIFE_DB_PATH` is a default argument, `-> ...` is the return type. `from __future__
   import annotations` at the top enables modern hint syntax (boilerplate).
 - **Single DB front door:** every client opens the DB via `connect()`, which always runs
@@ -70,10 +70,10 @@ Document new concepts, techniques, and knowledge gained. Reference this file to 
 **Key Points:**
 - **Module** = a single `.py` file. **Package** = a *folder* marked by an `__init__.py`
   file (which can contain sub-packages). The folder/file names are the import names.
-- `__init__.py` signals "this folder is an importable package" and **runs once on first
-  import** — the natural home for package-level setup or just a docstring. Rough Node
+- `__init__.py` signals "this folder is an importable package" and runs once on first
+  import: the natural home for package-level setup or just a docstring. Rough Node
   analogy: `__init__.py` ≈ a folder's `index.js` (the entry point when you import a folder).
-- Ours is intentionally **empty except a docstring**: existence makes `lifebook`
+- Ours is intentionally empty except a docstring: existence makes `lifebook`
   importable; we deliberately don't re-export anything, so imports stay explicit
   (`from lifebook.db import connect`) and cheap.
 - **Docstring** = a `"""triple-quoted"""` string at the top of a module/function; Python
@@ -83,8 +83,8 @@ Document new concepts, techniques, and knowledge gained. Reference this file to 
   (`__init__`, `__name__`, …).
 
 **Sources:**
-- [Python tutorial — Modules & Packages](https://docs.python.org/3/tutorial/modules.html),
-  [PEP 257 — docstrings](https://peps.python.org/pep-0257/).
+- [Python tutorial: Modules & Packages](https://docs.python.org/3/tutorial/modules.html),
+  [PEP 257: docstrings](https://peps.python.org/pep-0257/).
 
 **Applied In:**
 - `src/lifebook/__init__.py` and every sub-package's `__init__.py`.
@@ -96,18 +96,18 @@ Document new concepts, techniques, and knowledge gained. Reference this file to 
   `requires-python` ([ADR-008](decisions.md)).
 
 **Key Points:**
-- `.python-version` is a one-line file (`3.12`) naming the **exact** Python the project
-  develops on. `uv` reads it and uses that version — even **auto-downloading** it if the
+- `.python-version` is a one-line file (`3.12`) naming the exact Python the project
+  develops on. `uv` reads it and uses that version, even auto-downloading it if the
   machine doesn't have it (we saw it fetch CPython 3.12.13).
-- Distinct from `pyproject.toml`'s `requires-python = ">=3.12"`, which sets the **minimum
-  allowed**. So: `.python-version` = "the exact one we use"; `requires-python` = "the
+- Distinct from `pyproject.toml`'s `requires-python = ">=3.12"`, which sets the minimum
+  allowed. So: `.python-version` = "the exact one we use"; `requires-python` = "the
   floor we support".
-- Committed to Git so the pin travels with the project — no "which Python?" drift across
+- Committed to Git so the pin travels with the project, with no "which Python?" drift across
   machines. Especially valuable here, where the box has 2.7 (`python`) and 3.11 (`py`).
 - Roughly the Python equivalent of `.nvmrc` for Node.
 
 **Sources:**
-- [uv — Python versions](https://docs.astral.sh/uv/concepts/python-versions/).
+- [uv: Python versions](https://docs.astral.sh/uv/concepts/python-versions/).
 
 **Applied In:**
 - `.python-version` (repo root) + `requires-python` in `pyproject.toml`.
@@ -118,17 +118,17 @@ Document new concepts, techniques, and knowledge gained. Reference this file to 
 - Came up explaining `pyproject.toml`'s `[build-system]` block ([ADR-008](decisions.md)).
 
 **Key Points:**
-- Making code an installable **package** (so `import lifebook` works after `uv sync`)
-  requires a **build backend** — the tool that turns the source folder into an
+- Making code an installable package (so `import lifebook` works after `uv sync`)
+  requires a **build backend**: the tool that turns the source folder into an
   installable "wheel". It's what `[build-system]` names.
-- Python splits this in two (PEP 517): a build **frontend** (the tool you run — `uv` or
-  `pip`) calls a build **backend** (does the actual building — `hatchling`). You interact
+- Python splits this in two (PEP 517): a build **frontend** (the tool you run, `uv` or
+  `pip`) calls a build **backend** (does the actual building, `hatchling`). You interact
   with the frontend constantly and the backend essentially never.
 - **Why hatchling here:** it's uv's default, needs minimal config (our whole build is one
   line, `packages = ["src/lifebook"]`), is standards-based (pure `pyproject.toml`, no
   `setup.py`), and well-maintained.
-- **Low-stakes / swappable:** the backend only affects how the package is *built/installed*,
-  never how the code *runs*. Alternatives: `setuptools` (older, more powerful, noisier
+- **Low-stakes / swappable:** the backend only affects how the package is *built/installed*;
+  it does not change how the code *runs*. Alternatives: `setuptools` (older, more powerful, noisier
   config), `flit-core` (minimal), `maturin` (for Rust). Switching later is a few lines.
 
 **Sources:**
@@ -146,7 +146,7 @@ Document new concepts, techniques, and knowledge gained. Reference this file to 
 
 **Key Points:**
 - **`PRAGMA foreign_keys` is per-connection and defaults OFF** in SQLite. FK constraints
-  are silently *not enforced* unless every connection turns it on — hence the shared
+  are silently *not enforced* unless every connection turns it on; hence the shared
   `lifebook.db.connect()` helper.
 - **`GLOB` ≠ `LIKE` wildcards.** `GLOB` uses `?` (one char) / `*` (many); `LIKE` uses `_`
   / `%`. Mixing them silently breaks pattern CHECKs (see [bugs.md](../02_fixing/bugs.md)).
@@ -158,7 +158,7 @@ Document new concepts, techniques, and knowledge gained. Reference this file to 
   trigger, with a `WHEN OLD.updated_at = NEW.updated_at` guard to avoid recursion.
 - **uv + src-layout.** uv pins the interpreter (`.python-version`) so `uv run` always uses
   the right Python; the **src-layout** (`pyproject.toml` at root, package under `src/`)
-  means code is imported only when installed — tests run against the installed package,
+  means code is imported only when installed: tests run against the installed package,
   catching packaging mistakes.
 
 **Sources:**

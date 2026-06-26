@@ -1,18 +1,7 @@
-"""Database access for life.db — the single source of truth.
+"""Database access for life.db, the single source of truth.
 
-Every client (build/seed scripts here, the future FastAPI backend and pipeline) opens
-the DB through ``connect()`` so foreign-key enforcement is never accidentally left off
-(``PRAGMA foreign_keys`` is per-connection in SQLite and defaults to OFF).
-
-Path constants are resolved relative to this package so the working directory doesn't
-matter (src-layout: the package is under src/, while data/ lives at the repo root):
-
-    repo/
-      src/lifebook/db/__init__.py   <- this file
-      src/lifebook/db/schema.sql
-      data/seed/*.csv               (Git source of truth)
-      data/local/config.toml        (gitignored)
-      data/local/life.db            (gitignored, created by build_db)
+Every client opens the DB through ``connect()`` so foreign-key enforcement is never
+left off (``PRAGMA foreign_keys`` is per-connection in SQLite and defaults to OFF).
 """
 
 from __future__ import annotations
@@ -27,8 +16,7 @@ REPO_ROOT = PACKAGE_ROOT.parent.parent
 
 SCHEMA_PATH = _DB_DIR / "schema.sql"
 SEED_DIR = REPO_ROOT / "data" / "seed"
-# data/local: gitignored, machine-local private state — config and life.db (ADR-004).
-LOCAL_DIR = REPO_ROOT / "data" / "local"
+LOCAL_DIR = REPO_ROOT / "data" / "local"  # gitignored: config + life.db
 LOCAL_CONFIG_PATH = LOCAL_DIR / "config.toml"
 LIFE_DB_PATH = LOCAL_DIR / "life.db"
 

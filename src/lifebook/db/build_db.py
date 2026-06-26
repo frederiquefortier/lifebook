@@ -1,7 +1,4 @@
-"""Create life.db from schema.sql.
-
-Safe by default: refuses to touch an existing life.db. Pass --force to delete and
-rebuild a clean baseline (only meaningful while there is no real data — see ADR-010).
+"""Create life.db from schema.sql. Refuses to touch an existing db unless --force.
 
     uv run python -m lifebook.db.build_db [--force]
 """
@@ -18,13 +15,13 @@ def build(force: bool = False) -> int:
     """Build life.db; return the number of user tables created."""
     if LIFE_DB_PATH.exists():
         if not force:
-            print(f"{LIFE_DB_PATH} exists — refusing. Use --force to delete and recreate.")
+            print(f"{LIFE_DB_PATH} exists, refusing. Use --force to delete and recreate.")
             return -1
         LIFE_DB_PATH.unlink()
         print(f"deleted {LIFE_DB_PATH}")
 
     schema_sql = SCHEMA_PATH.read_text(encoding="utf-8")
-    LIFE_DB_PATH.parent.mkdir(parents=True, exist_ok=True)  # data/local may not exist on a fresh clone
+    LIFE_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     con = connect(LIFE_DB_PATH)
     try:
         con.executescript(schema_sql)

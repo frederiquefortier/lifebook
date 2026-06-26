@@ -75,7 +75,7 @@ Track future enhancements and feature ideas. Review this file during planning se
 - [ ] Proposed
 - [ ] In Progress
 - [ ] Completed
-- [x] Deferred — superseded by ADR-012
+- [x] Deferred: superseded by ADR-012
 
 ---
 
@@ -87,18 +87,18 @@ Track future enhancements and feature ideas. Review this file during planning se
   emotions with confidence, plus a supporting quote.
 
 **Motivation:**
-- Produces consistent, aggregatable, evaluable labels — the basis for the heatmap,
+- Produces consistent, aggregatable, evaluable labels: the basis for the heatmap,
   theme-evolution, and emotion curves in the final cartography.
 - Keeps intimate content private and the author in control.
 
 **Potential Approach:**
-- A **local** open-weight LLM fed the list (names + `definition` glosses from the seed
+- A local open-weight LLM fed the list (names + `definition` glosses from the seed
   CSVs), returning `{labels, confidence, quote}`; optional embeddings/similarity first
   pass as a cheap cross-check.
 - Store discrete emotion labels *and* the continuous `valence` score for smooth
   heatmaps / mood curves.
 - Stamp each tag with the `list_version` it was produced under.
-- Allow **zero** themes per entry — there is no `other` bucket; an entry that fits no theme
+- Allow zero themes per entry: there is no `other` bucket; an entry that fits no theme
   gets none ([ADR-012](../01_building/decisions.md)). Confidence gating must never force a pick.
 - Keep outputs as suggestions gated by `confidence`; spot-review low-confidence rows.
 - Build a small hand-labeled gold set (~100 entries) to measure accuracy and tune

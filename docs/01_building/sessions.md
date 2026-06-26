@@ -37,19 +37,19 @@ Track AI-assisted development sessions with summaries, successes, challenges, an
 
 **What We Worked On:**
 - Reviewed and redesigned `data/seed/themes.csv` before sealing it, grilling each decision
-  one at a time. Net path: a 22-row provisional set → **21 frozen, full-life themes**.
-- **Defined the gate first (the load-bearing move):** *a theme is an aboutness* — a subject
-  an entry is *about* — **not** a mode of writing, a significance level, or a feeling. This
+  one at a time. Net path: a 22-row provisional set down to 21 frozen, full-life themes.
+- **Defined the gate first (the load-bearing move):** a theme is an aboutness, a subject
+  an entry is *about*. It is not a mode of writing, a significance level, or a feeling. This
   test drove every cut and add.
 - **Cut the leaks the gate exposes:** cross-dimension duplicates `emotions` and `gratitude`
   (`gratitude` is already an emotion); non-aboutness pseudo-themes `reflections` (a writing
-  *mode*) and `daily-life` (a *significance level*, the worst offender — would co-fire on most
+  *mode*) and `daily-life` (a *significance level*, the worst offender, which would co-fire on most
   entries). Collapsed the fuzzy introspection cluster `identity`/`mindset`/`reflections`/
   `meaning` → `identity` + `meaning`.
-- **Policy reversal → [ADR-012]:** *frozen meanings, append-only, full-life-anticipated, no
-  `other`*. This **amends ADR-005** (drops bootstrap-from-corpus-then-freeze, versioned-growth-
+- **Policy reversal → [ADR-012]:** frozen meanings, append-only, full-life-anticipated, no
+  `other`. This amends ADR-005 (drops bootstrap-from-corpus-then-freeze, versioned-growth-
   as-the-plan, and the `other` escape hatch). Consequence recorded for the pipeline: the
-  classifier must be allowed to emit **zero** themes and never forced to pick.
+  classifier must be allowed to emit zero themes and never forced to pick.
 - **Full-life coverage:** added `spirituality`, `parenting`, `sexuality`, `society`, `leisure`,
   `body`; re-scoped `family` (→ origins/kin) and `love` (→ couple) so `parenting` and
   `sexuality` get clean edges.
@@ -60,10 +60,10 @@ Track AI-assisted development sessions with summaries, successes, challenges, an
   social critique, ideologies, collective identity).
 - **Boundary/wording fixes caught on re-reading:** narrowed `grief` off "transition/changement"
   creep; depluralized circular `identity`/`family` defs; split the `health`/`habits` seam
-  ("hygiène de vie" → discipline); and — after the rename — removed "direction de vie" from the
+  ("hygiène de vie" → discipline); and, after the rename, removed "direction de vie" from the
   `meaning` def, which had started revendicating the new `direction` theme's territory.
 - **Slug audit:** 21 unique, convention-consistent (lowercase single words, no separators);
-  only `grief` collides with an `nsfw_tags` slug — intentional and documented (orthogonal axes,
+  only `grief` collides with an `nsfw_tags` slug, which is intentional and documented (orthogonal axes,
   separate tables).
 - **Applied across 4 files:** rewrote `themes.csv`, wrote ADR-012, trimmed the "provisional/
   bootstrap" framing out of `data/seed/README.md`, and in `improvements.md` superseded the
@@ -71,7 +71,7 @@ Track AI-assisted development sessions with summaries, successes, challenges, an
 
 **What Went Well:**
 - Writing the *definition of a theme* before touching the list turned vague "feels redundant"
-  intuitions into a sharp, repeatable test — the aboutness gate did the actual work.
+  intuitions into a sharp, repeatable test. The aboutness gate did the actual work.
 - Cross-checking each label against the *other* dimensions caught the duplicates fast
   (`gratitude` already an emotion; `grief` shared with nsfw is fine because nsfw is an
   orthogonal sensitivity axis).
@@ -80,7 +80,7 @@ Track AI-assisted development sessions with summaries, successes, challenges, an
 - Same root cause as the emotions session: the provisional set carried errors (`emotions`,
   `gratitude`, `reflections`, `daily-life`) precisely because it was drafted before a
   definition existed and without cross-checking the other dimensions. Define the gate, then
-  draft the list — not the reverse.
+  draft the list, in that order.
 
 **Friction Points:**
 - Scope/wording collisions only surfaced on a final re-read: the `ambition → direction` rename
@@ -88,12 +88,12 @@ Track AI-assisted development sessions with summaries, successes, challenges, an
   follow-up pass over every *other* theme's definition for the old term.
 
 **Key Takeaways:**
-- **A theme is an aboutness** — not a mode, a significance level, or a feeling. Cross-dimension
-  slug overlap is allowed because emotions/nsfw are orthogonal axes, not competing subjects.
-- **Frozen meanings + append-only + no `other`** means the pipeline must support an entry with
+- A theme is an aboutness. It is not a mode, a significance level, or a feeling. Cross-dimension
+  slug overlap is allowed because emotions/nsfw are orthogonal axes, separate from competing subjects.
+- Frozen meanings, append-only, and no `other` together mean the pipeline must support an entry with
   *no* theme (the m2m join makes zero rows the honest representation) and must never force a pick.
-- For a lifetime archive, freeze the *meaning*, not the *size*: anticipate the full arc now, let
-  unused themes sit, and only ever **append** a genuinely new life-domain.
+- For a lifetime archive, freeze the *meaning* and not the *size*: anticipate the full arc now, let
+  unused themes sit, and only ever append a genuinely new life-domain.
 
 ### 2026-06-25 - Emotions seed: 2-D mood meter, 9-family wheel, "love is not an emotion"
 
@@ -104,18 +104,18 @@ Track AI-assisted development sessions with summaries, successes, challenges, an
   (`créativité`, `bienveillance`) and redundant near-synonyms (`appreciation`, `power`,
   `frustration`, `exclusion`); added memoir-relevant gaps (`nostalgia`, `pride`, `relief`,
   `serenity`, `regret`, `awe`, `surprise`) and a `disgust`/`contempt` pair.
-- **Slugs** → English **nouns** (resolving an adjective/noun drift vs the doc's examples);
+- **Slugs** → English nouns (resolving an adjective/noun drift vs the doc's examples);
   `name`/`definition` stay French-first (ADR-007).
-- **2-D mood meter:** added `arousal` (0..1) alongside `valence`, **reversing ADR-005's
-  valence-only choice** (the cheap, pre-data moment per ADR-010). Valence recalibrated
+- **2-D mood meter:** added `arousal` (0..1) alongside `valence`, reversing ADR-005's
+  valence-only choice (the cheap, pre-data moment per ADR-010). Valence recalibrated
   symmetric, full ±1.0 used (`affection` +1.0 ↔ `powerlessness` −1.0).
-- **9-family wheel** via a new `family` column — pleasant split 3 ways (Joie / Tendresse /
+- **9-family wheel** via a new `family` column. Pleasant split 3 ways (Joie / Tendresse /
   Sérénité) to match the 5 unpleasant families, avoiding Ekman's negativity bias on a
   grouped chart.
-- **Dimensional clean-up:** `love`/Amour removed as an emotion — its senses route to where
+- **Dimensional clean-up:** `love`/Amour removed as an emotion. Its senses route to where
   they belong (felt warmth = `affection`; the bond = `people`+relationship_type; love-as-
-  subject = the existing `love` **theme**). Confirmed "Suisse 2026" is an **event**,
-  "voyage" a **theme** — no free-form tags.
+  subject = the existing `love` **theme**). Confirmed "Suisse 2026" is an **event** and
+  "voyage" a **theme**, with no free-form tags.
 - **Applied across 6 files:** rewrote the CSV, added `arousal`+`family` to `schema.sql`,
   extended `seed_labels.py`, updated `database.md`, wrote ADR-011 (+ superseded note on
   ADR-005), and refreshed the stale `test_db_foundation.py` assertions. Full suite green.
@@ -128,34 +128,34 @@ Track AI-assisted development sessions with summaries, successes, challenges, an
   emotions, themes, and events from bleeding into each other.
 
 **What Could We Do Better:**
-- The author had to catch the love/emotion conflation — the first family proposals carried
+- The author had to catch the love/emotion conflation. The first family proposals carried
   "Amour" as a family even though `love` already existed as a theme. Should cross-check a
   new label against the *other* dimensions' existing lists before proposing it.
 
 **Friction Points:**
 - The seed tests were already stale (asserted 6 emotions vs a 32-row CSV) and `themes.csv`
-  had **independently grown 7 → 22 rows** outside the session — both tripped the suite, so
+  had independently grown 7 → 22 rows outside the session. Both tripped the suite, so
   the counts needed re-syncing. A seed-count test pinned to a hand-written number drifts
   every time a CSV changes; consider deriving the expected count from the CSV instead.
 
 **Key Takeaways:**
 - **Capture granularity ≠ display granularity:** keep the rich 35-label list for tagging,
   roll up to 9 families only for charts. You can aggregate up but never recover detail you
-  didn't capture — so resist shrinking the *list* to fix a *graph*.
+  didn't capture, so resist shrinking the *list* to fix a *graph*.
 - Only **slugs** are costly to change post-seed (deprecate+insert by `slug`); `name`,
   `valence`, `arousal`, `family` are re-tunable `UPDATE`s on every re-seed.
-- A label is only an *emotion* if it's a momentary felt state with an intensity — bonds,
+- A label is only an *emotion* if it's a momentary felt state with an intensity. Bonds,
   subjects, and traits belong to other dimensions.
 
 ### 2026-06-24 - Project setup: the data-layer foundation (first code)
 
 **What We Worked On:**
 - First code in the repo (previously docs-only). Built the **reproducible `life.db`
-  foundation** — the prerequisite for every other client (app, pipeline, publication).
-- **Tooling & layout:** uv + Python 3.12 ([ADR-008]); src-layout — `pyproject.toml` at
+  foundation**, the prerequisite for every other client (app, pipeline, publication).
+- **Tooling & layout:** uv + Python 3.12 ([ADR-008]); src-layout, with `pyproject.toml` at
   the repo root, `src/lifebook/` as the sole DB-writing package, `frontend/` + `data/` +
   `tests/` at the root ([ADR-009]).
-- **`schema.sql`** — all 28 tables from database.md as production-grade SQLite DDL:
+- **`schema.sql`**: all 28 tables from database.md as production-grade SQLite DDL:
   `AUTOINCREMENT` on every id, `created_at`/`updated_at` + `AFTER UPDATE` trigger on
   every table, TEXT ISO-8601 dates with a `GLOB` shape check, FK `ON DELETE`
   cascade/restrict rules, indexes, `PRAGMA user_version = 1`, inline seeds for
@@ -179,7 +179,7 @@ Track AI-assisted development sessions with summaries, successes, challenges, an
   in bugs.md.)
 
 **Key Takeaways:**
-- `connect()` centralizing `PRAGMA foreign_keys = ON` matters — FK enforcement is
+- `connect()` centralizing `PRAGMA foreign_keys = ON` matters. FK enforcement is
   per-connection in SQLite and silently off otherwise.
 - The build's refuse-unless-`--force` guard is the practical backstop for the ADR-010
   "never destroy real data" rule.
@@ -189,11 +189,11 @@ Track AI-assisted development sessions with summaries, successes, challenges, an
 **What We Worked On:**
 - Decided `events` tags aren't enough for a map (no coordinates, too coarse). Added a
   proper geographic dimension:
-  - **`places`** table (canonical, `id`, `name`, `lat`, `lng`, optional `kind`) —
+  - **`places`** table (canonical, `id`, `name`, `lat`, `lng`, optional `kind`),
     author-managed like `people`, not Git-seeded.
-  - **`entries.place_id`** — where you were for that entry (one place; nullable).
+  - **`entries.place_id`**: where you were for that entry (one place; nullable).
   - Trip/year/whole-span maps are **derived by filtering** (a trip's map = places of the
-    entries tagged with that event) — no extra link tables, consistent with the atomic
+    entries tagged with that event). No extra link tables, consistent with the atomic
     rule.
 - Added the **map module** to the app scope (pick/confirm location) and a **Places / map**
   cartography section to product.md. Map libs (Leaflet/MapLibre) noted in references.
@@ -213,7 +213,7 @@ Track AI-assisted development sessions with summaries, successes, challenges, an
   `fete` → `birthday_review`; tables `abecedaires`/`abecedaire_items` →
   `alphabets`/`alphabet_items`. Other slugs already English.
 - **`config.author_dob` → `author_birthdate`** across all docs.
-- **Dropped the `event` entry type** — replaced with an **`events` tag dimension**:
+- **Dropped the `event` entry type**, replaced with an **`events` tag dimension**:
   `events` (id, name, optional start/end dates) + `entry_events` join. Author-managed in
   the app (select-or-add), not seeded, not classifier-driven, French names like
   *Suisse 2024* / *Espagne 2016*. It groups entries across time (a trip/place), which a
@@ -239,7 +239,7 @@ Track AI-assisted development sessions with summaries, successes, challenges, an
   into one entry each; grouping is by filter. Added `date_precision` (day/week/month/
   year) and `title` to `entries`.
 - **Real content types captured** from the actual transfer:
-  - `entries` types: `journal` (Lettres), `fete` (year-in-review by age — replaces the
+  - `entries` types: `journal` (Lettres), `fete` (year-in-review by age, replacing the
     `birthday_reviews` table), `fun_fact`, `prompt` (title=Q, content=A), `event`.
   - New structured tables: `books` + `book_citations`, `abecedaires` + `abecedaire_items`,
     `bingos` + `bingo_cells`, `bucketlist_items` (running list, history derived).
@@ -253,7 +253,7 @@ Track AI-assisted development sessions with summaries, successes, challenges, an
 - `bucketlist` is one global running list (not per volume).
 
 **Key Takeaways:**
-- The atomic "one entry per date, group by filter" rule is the backbone — the author's
+- The atomic "one entry per date, group by filter" rule is the backbone. The author's
   own Word numbering scheme is filing, deliberately not modeled.
 
 ### 2026-06-24 - Top categories: app-managed, not Git-seeded
@@ -269,7 +269,7 @@ Track AI-assisted development sessions with summaries, successes, challenges, an
   managed in the app, like people / aliases.
 
 **Key Takeaways:**
-- "Controlled list" isn't one pattern — there are two, split by whether the pipeline
+- "Controlled list" isn't one pattern. There are two, split by whether the pipeline
   reads it. That distinction now has a written home.
 
 ### 2026-06-24 - "Music" generalized to yearly tops
@@ -285,20 +285,20 @@ Track AI-assisted development sessions with summaries, successes, challenges, an
   "Tops over time"); swept brief/architecture/ingestion wording.
 
 **Resolved (was deferred):**
-- The earlier "music data source (Spotify/Last.fm)" open item is moot — the tops are
+- The earlier "music data source (Spotify/Last.fm)" open item is moot. The tops are
   written in the Word docs, so they come in through normal ingestion; exact parsing
   TBD when we see the files.
 
 **Key Takeaways:**
 - Normalized over a JSON blob because the cartography wants to trace a single category
-  (music, games, …) across years — that needs queryable rows, not opaque JSON.
+  (music, games, …) across years, which needs queryable rows rather than opaque JSON.
 
 ### 2026-06-24 - Config table, French ADR, events & numbering
 
 **What We Worked On:**
 - Closed three gaps from a second structure review.
 - **`config` table** added to `database.md` (single row: `author_dob`, decade
-  bounds) — unblocks personal time / age, which had no birthdate to compute from.
+  bounds), which unblocks personal time / age, which had no birthdate to compute from.
 - **ADR-007** added: content is French; tooling is French-first (spaCy `fr_core_news`,
   French dates, French LLM prompts; `slug` stays neutral, `name`/`definition` French).
 - **Events & numbering** clarified: notable events are `event`-type entries, curated
@@ -307,10 +307,10 @@ Track AI-assisted development sessions with summaries, successes, challenges, an
 - Swept French note into `ingestion.md`, `references.md`, `CLAUDE.md`.
 
 **Decided not to capture (for now):**
-- Music data source (Spotify/Last.fm) — deferred by choice.
+- Music data source (Spotify/Last.fm), deferred by choice.
 
 **Key Takeaways:**
-- The biggest catch was conceptual, not cosmetic: half the "two clocks" idea was
+- The biggest catch was conceptual rather than cosmetic: half the "two clocks" idea was
   uncomputable because no birthdate was stored anywhere.
 
 ### 2026-06-24 - Structure gap-review and the curation app
@@ -319,7 +319,7 @@ Track AI-assisted development sessions with summaries, successes, challenges, an
 - Reviewed the docs for gaps and resolved a privacy contradiction.
 - **ADR-004 rewritten:** encrypt cloud backups of `life.db`; retire the Word/Notion
   source docs after ingestion (DB becomes source of truth).
-- **ADR-006 added:** local-first curation app — React + TipTap over a local FastAPI
+- **ADR-006 added:** local-first curation app, React + TipTap over a local FastAPI
   backend; capture + human-in-the-loop review; Python stays the only DB writer.
 - **New `ingestion.md`:** import path for the Word-in-Google-Drive + Notion backlog,
   entry delimiting, date parsing, people/alias resolution, source retirement.
@@ -336,7 +336,7 @@ Track AI-assisted development sessions with summaries, successes, challenges, an
 - Resolving the cloud-backup contradiction tied ADR-004 back to ADR-005's privacy bar.
 
 **Key Takeaways:**
-- The app is best framed as the *curation hub*, not just an editor — it's where the
+- The app is best framed as the *curation hub* rather than just an editor. It's where the
   pipeline's suggestions become confirmed data.
 
 ### 2026-06-24 - Structuring the source brief into the docs system
@@ -346,9 +346,9 @@ Track AI-assisted development sessions with summaries, successes, challenges, an
   across the documentation structure.
 - Filled the empty/template docs: vision, references, decisions (ADRs), and improvements.
 - Added new files to give the material a coherent home:
-  - `00_briefing/editorial-concept.md` — the book's structure and content layers.
-  - `01_building/architecture.md` — the three-layer system + workflow + backups.
-  - `01_building/data-model.md` — the full `life.db` schema reference.
+  - `00_briefing/editorial-concept.md`: the book's structure and content layers.
+  - `01_building/architecture.md`: the three-layer system + workflow + backups.
+  - `01_building/data-model.md`: the full `life.db` schema reference.
   - Root `README.md` and `CLAUDE.md` as entry points / AI guidance.
 - Later trimmed the structure: folded the design principles into `vision.md` and the
   personas into `brief.md`, deleting the separate `design/` and `personas/` folders.
@@ -367,6 +367,6 @@ Track AI-assisted development sessions with summaries, successes, challenges, an
   actual Décade project brief and removed the stale cross-references.
 
 **Key Takeaways:**
-- The non-negotiable thread across every doc: data is the source of truth, the
+- The non-negotiable thread across every doc: data is the source of truth, and the
   renderer is replaceable. Everything else (durability, ownership, reproducibility)
   follows from that.

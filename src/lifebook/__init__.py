@@ -1,5 +1,5 @@
-"""Lifebook — the single Python package and the only writer of life.db.
+"""Lifebook: the single Python package and the only writer of life.db.
 
 life.db (SQLite) is the project's single source of truth; every other component
-(the curation app, the publication step) is a client. See docs/01_building/architecture.md.
+(the curation app, the publication step) is a client.
 """

@@ -1,13 +1,7 @@
-"""Seed the closed label lists (themes / emotions / nsfw_tags) from data/seed/*.csv.
+"""Seed the label lists (themes / emotions / nsfw_tags) from data/seed/*.csv.
 
-The CSV files are the source of truth (ADR-005); these tables are the runtime copy.
-Sync rule (CSV is fully authoritative):
-
-  * slug present in the CSV  -> insert or update name/definition/(valence)/status
-                               (status comes from the CSV, so re-adding as 'active'
-                                reactivates a previously deprecated label);
-  * slug absent from the CSV -> forced to status='deprecated', never deleted
-                               (so historical tags pointing at it stay valid).
+The CSVs are authoritative: a slug in the CSV is inserted/updated; a slug no longer in
+the CSV is marked deprecated, never deleted, so historical tags stay valid.
 
     uv run python -m lifebook.db.seed_labels
 """
@@ -72,7 +66,6 @@ def seed_table(
             )
             inserted += 1
 
-    # Anything no longer in the CSV is deprecated (never deleted). Count only flips.
     deprecated = 0
     for slug in existing - csv_slugs:
         cur = con.execute(

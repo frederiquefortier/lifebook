@@ -1,7 +1,7 @@
--- Lifebook — life.db schema (SQLite).
+-- Lifebook: life.db schema (SQLite).
 -- The single source of truth. Generated/maintained by hand from docs/01_building/database.md.
 --
--- Conventions (see ADR-008/009/010 and database.md):
+-- Conventions (see database.md):
 --   * Every id is INTEGER PRIMARY KEY AUTOINCREMENT  -> ids are never reused.
 --   * Every table carries created_at / updated_at (TEXT, ISO-8601 via CURRENT_TIMESTAMP);
 --     an AFTER UPDATE trigger keeps updated_at current. The WHEN guard prevents recursion.
@@ -12,15 +12,15 @@
 --
 -- This file is the authoritative baseline. While there is no real data it may be edited
 -- and the DB rebuilt with `build_db --force`. Once life.db holds real entries, freeze
--- this file and evolve with additive numbered migrations instead (ADR-010).
+-- this file and evolve with additive numbered migrations instead.
 
 PRAGMA user_version = 1;
 
 -- ───────────────────────────── Project config ─────────────────────────────
 
--- Single-row table: the one constant that can't be derived — the author's birthdate,
+-- Single-row table: the one constant that can't be derived, the author's birthdate,
 -- which makes personal time (age, birthday-to-birthday) computable. Seeded locally from
--- a gitignored file, never committed (ADR-004); see lifebook/db/seed_config.py.
+-- a gitignored file, never committed; see lifebook/db/seed_config.py.
 CREATE TABLE config (
     id               INTEGER PRIMARY KEY CHECK (id = 1),
     author_birthdate TEXT NOT NULL CHECK (author_birthdate GLOB '????-??-??'),
@@ -38,7 +38,7 @@ CREATE TABLE entry_types (
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Canonical people — each individual exists exactly once.
+-- Canonical people; each individual exists exactly once.
 CREATE TABLE people (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     display_name TEXT NOT NULL,
@@ -74,7 +74,7 @@ CREATE TABLE person_relationships (
     updated_at           TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Closed, versioned theme list — runtime copy of data/seed/themes.csv (ADR-005).
+-- Closed, versioned theme list. Runtime copy of data/seed/themes.csv.
 CREATE TABLE themes (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     slug       TEXT NOT NULL UNIQUE,
@@ -85,7 +85,7 @@ CREATE TABLE themes (
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Closed, versioned emotion list — runtime copy of data/seed/emotions.csv (ADR-005, ADR-011).
+-- Closed, versioned emotion list. Runtime copy of data/seed/emotions.csv.
 -- valence (-1..+1, unpleasant..pleasant) and arousal (0..1, calm..activated) place each
 -- emotion on the 2-D mood meter; `family` is its slug in the 9-family wheel for grouped
 -- views. valence × per-entry intensity drives the continuous "emotional climate" curve.
@@ -102,7 +102,7 @@ CREATE TABLE emotions (
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Closed sensitivity-category list — runtime copy of data/seed/nsfw_tags.csv (ADR-005).
+-- Closed sensitivity-category list. Runtime copy of data/seed/nsfw_tags.csv.
 -- (The 0-3 intensity LEVEL is a separate column on entries.)
 CREATE TABLE nsfw_tags (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -124,7 +124,7 @@ CREATE TABLE events (
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Geographic points — the map module backbone. App-managed; not seeded.
+-- Geographic points: the map module backbone. App-managed; not seeded.
 CREATE TABLE places (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     name       TEXT NOT NULL,
