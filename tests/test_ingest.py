@@ -9,6 +9,7 @@ from __future__ import annotations
 import datetime as dt
 import io
 import sqlite3
+import unicodedata
 import zipfile
 from collections import Counter
 
@@ -199,6 +200,178 @@ def test_range_round_trips_through_db_and_check_rejects_reversed(tmp_path):
     con.close()
 
 
+def test_override_whole_collapses_internal_headers():
+    # A letter with mid-text date lines becomes a single entry; the date lines are dropped.
+    paras = ["Cher X,", "Corps un.", "17 mai 2020", "Corps deux.", "20 mai 2020."]
+    override = {"mode": "whole", "date": "20-05-2020"}
+    entries, holdout = prose._split_file(paras, "2.12", "Lettre 2.12.docx", Counter(), override)
+    assert holdout is None
+    assert len(entries) == 1
+    entry = entries[0]
+    assert (entry.date, entry.entry_type, entry.precision) == ("2020-05-20", "journal", "day")
+    assert entry.content.startswith("Cher X,")
+    assert "17 mai 2020" not in entry.content and "20 mai 2020" not in entry.content
+
+
+def test_override_whole_review_stays_a_birthday():
+    # A whole-number label keeps its year-in-review classification, just with a fixed date.
+    paras = ["Bilan de mes 20 ans.", "12... nop 13 août 2020."]
+    entries, holdout = prose._split_file(
+        paras, "3.", "Lettre 3..docx", Counter(), {"mode": "whole", "date": "13-08-2020"}
+    )
+    assert holdout is None
+    assert (entries[0].entry_type, entries[0].precision, entries[0].date) == ("birthday", "year", "2020-08-13")
+
+
+def test_override_preamble_becomes_a_standalone_entry():
+    paras = ["Intro sans date.", "13 août 2020", "Jour 13.", "14 août 2020", "Jour 14."]
+    entries, holdout = prose._split_file(
+        paras, "3.0.1", "f.docx", Counter(), {"mode": "preamble", "date": "22-08-2020"}
+    )
+    assert holdout is None
+    assert [(e.date, e.content) for e in entries] == [
+        ("2020-08-22", "Intro sans date."),
+        ("2020-08-13", "Jour 13."),
+        ("2020-08-14", "Jour 14."),
+    ]
+
+
+def test_override_defer_preamble_drops_it_but_keeps_dailies():
+    paras = ["Mai Goals ---", "objectif un", "1e mai 2021", "Jour un."]
+    stats: Counter = Counter()
+    entries, holdout = prose._split_file(paras, "3.0.10", "f.docx", stats, {"mode": "defer_preamble"})
+    assert holdout is None
+    assert [(e.date, e.content) for e in entries] == [("2021-05-01", "Jour un.")]
+    assert stats["deferred_preamble"] == 2
+
+
+def test_override_end_dates_binds_content_to_the_date_below_it():
+    # The parser's default would misdate these by one; end_dates fixes the association.
+    paras = ["Réflexion du nouvel an.", "18 janvier 2025", "Après le 18.", "3 février 2025"]
+    entries, holdout = prose._split_file(paras, "7.0.6-7", "f.docx", Counter(), {"mode": "end_dates"})
+    assert holdout is None
+    assert [(e.date, e.content) for e in entries] == [
+        ("2025-01-18", "Réflexion du nouvel an."),
+        ("2025-02-03", "Après le 18."),
+    ]
+
+
+def test_override_end_dates_holds_out_trailing_prose():
+    paras = ["Corps.", "18 janvier 2025", "Sans date de fermeture."]
+    entries, holdout = prose._split_file(paras, "x", "f.docx", Counter(), {"mode": "end_dates"})
+    assert [e.date for e in entries] == ["2025-01-18"]
+    assert holdout is not None and holdout.reason == "prose after last end-date header"
+
+
+def test_override_sections_attaches_titles_and_strips_them():
+    paras = ["Titre A", "3 février 2020", "Corps A.", "Titre B", "13 février 2020", "Corps B."]
+    override = {
+        "mode": "sections",
+        "sections": [
+            {"date": "03-02-2020", "title": "Titre A"},
+            {"date": "13-02-2020", "title": "Titre B"},
+        ],
+    }
+    entries, holdout = prose._split_file(paras, "2.2.2", "f.docx", Counter(), override)
+    assert holdout is None
+    assert [(e.date, e.title, e.content) for e in entries] == [
+        ("2020-02-03", "Titre A", "Corps A."),
+        ("2020-02-13", "Titre B", "Corps B."),
+    ]
+
+
+def test_override_skip_yields_no_entries_and_no_holdout():
+    paras = ["18 juillet 2020.", "Un prompt.", "4 mars 2021.", "Suite."]
+    stats: Counter = Counter()
+    entries, holdout = prose._split_file(paras, "2.15", "f.docx", stats, {"mode": "skip"})
+    assert entries == [] and holdout is None
+    assert stats["deferred_files"] == 1
+
+
+def test_override_whole_titles_the_entry_with_its_label():
+    # Overriding only the date must not blank the title; it defaults to the label.
+    paras = ["Une lettre sans date."]
+    entries, _ = prose._split_file(paras, "4.3", "f.docx", Counter(), {"mode": "whole", "date": "08-09-2022"})
+    assert entries[0].title == "4.3"
+    # An explicit title still wins.
+    entries, _ = prose._split_file(
+        paras, "4.3", "f.docx", Counter(), {"mode": "whole", "date": "08-09-2022", "title": "Cher E.N"}
+    )
+    assert entries[0].title == "Cher E.N"
+
+
+def test_override_whole_without_prose_is_held_out_not_dropped():
+    paras = ["17 mai 2020"]  # a lone date header, no prose to keep
+    entries, holdout = prose._split_file(paras, "x", "f.docx", Counter(), {"mode": "whole", "date": "20-05-2020"})
+    assert entries == []
+    assert holdout is not None and holdout.reason == "whole override but file has no prose"
+
+
+def test_override_unknown_mode_raises_with_source():
+    with pytest.raises(ValueError, match=r"f\.docx: unknown override mode"):
+        prose._split_file(["x"], "l", "f.docx", Counter(), {"mode": "bogus"})
+
+
+def test_override_bad_date_raises_with_source():
+    with pytest.raises(ValueError, match=r"f\.docx: date is not a valid DD-MM-YYYY date"):
+        prose._split_file(["x"], "l", "f.docx", Counter(), {"mode": "whole", "date": "2020-05-20"})
+
+
+def test_override_sections_length_mismatch_raises_with_source():
+    paras = ["Titre A", "3 février 2020", "Corps A."]  # only one dated section
+    override = {
+        "mode": "sections",
+        "sections": [
+            {"date": "03-02-2020", "title": "Titre A"},
+            {"date": "13-02-2020", "title": "Titre B"},
+        ],
+    }
+    with pytest.raises(ValueError, match=r"f\.docx: sections override expected 2 entries, got 1"):
+        prose._split_file(paras, "l", "f.docx", Counter(), override)
+
+
+def test_override_sections_date_mismatch_raises_with_source():
+    paras = ["Titre A", "9 février 2020", "Corps A."]  # header date != override date
+    override = {"mode": "sections", "sections": [{"date": "03-02-2020", "title": "Titre A"}]}
+    with pytest.raises(ValueError, match=r"f\.docx: section date 2020-02-09 does not match override 2020-02-03"):
+        prose._split_file(paras, "l", "f.docx", Counter(), override)
+
+
+def test_override_sections_holds_out_stray_prose_before_the_first_title():
+    # An intro line before the first title/date has no section; it must be held out, not dropped.
+    paras = ["Intro sans titre.", "Titre A", "3 février 2020", "Corps A."]
+    override = {"mode": "sections", "sections": [{"date": "03-02-2020", "title": "Titre A"}]}
+    entries, holdout = prose._split_file(paras, "l", "f.docx", Counter(), override)
+    assert [(e.date, e.title, e.content) for e in entries] == [("2020-02-03", "Titre A", "Corps A.")]
+    assert holdout is not None and holdout.reason == "prose before first titled section"
+    assert holdout.paragraphs == 1
+
+
+def test_override_sections_strips_a_title_only_once():
+    # A body line that repeats the title string after the heading survives.
+    paras = ["Titre A", "3 février 2020", "Corps A.", "Titre A"]
+    override = {"mode": "sections", "sections": [{"date": "03-02-2020", "title": "Titre A"}]}
+    entries, _ = prose._split_file(paras, "l", "f.docx", Counter(), override)
+    assert entries[0].content == "Corps A.\n\nTitre A"
+
+
+def test_override_preamble_without_a_preamble_is_signaled():
+    # Specifying a preamble date for a file that has none is a no-op that contradicts intent.
+    paras = ["13 août 2020", "Jour 13."]
+    entries, holdout = prose._split_file(
+        paras, "3.0.1", "f.docx", Counter(), {"mode": "preamble", "date": "22-08-2020"}
+    )
+    assert [e.date for e in entries] == ["2020-08-13"]
+    assert holdout is not None and holdout.reason == "preamble override but file has no preamble"
+
+
+def test_load_overrides_parses_ddmmyyyy_table(tmp_path):
+    path = tmp_path / "date_overrides.toml"
+    path.write_text('["Lettre 2.13.docx"]\nmode = "whole"\ndate = "11-06-2020"\n', encoding="utf-8")
+    assert prose.load_overrides(path) == {"Lettre 2.13.docx": {"mode": "whole", "date": "11-06-2020"}}
+    assert prose.load_overrides(tmp_path / "absent.toml") == {}
+
+
 def test_recap_block_in_single_letter_is_dropped():
     # The recap-skip rule must apply to flat letters too, not only monthly journals.
     paras = ["3 mai 2022", "Vraie prose.", "Livre du mois :", "Un roman.", "Ma note."]
@@ -316,6 +489,40 @@ def test_build_entries_merges_sources_and_dedups(tmp_path):
     # Dedup keeps the canonical name, not the '(1)' copy, even though '(1)' sorts first.
     sources = {e.source for e in entries}
     assert sources == {"Lettre 9.0.1 - août.docx", "n.md"}
+
+
+def test_build_entries_flags_an_override_key_that_matched_no_file(tmp_path):
+    drive = tmp_path / "drive"
+    drive.mkdir()
+    notion_dir = tmp_path / "notion"
+    notion_dir.mkdir()
+    _write_docx(drive, "Lettre 9.2.docx", "1 août 2025", "Jour un.")
+    overrides = {"Lettre 9.2.docx": {"mode": "whole", "date": "01-08-2025"},
+                 "Lettre 9.9.docx": {"mode": "whole", "date": "01-08-2025"}}  # names no real file
+
+    entries, holdouts, stats = prose.build_entries(drive, notion_dir, overrides)
+
+    assert stats["overrides_unmatched"] == 1
+    leftovers = [h for h in holdouts if h.reason.startswith("override key matched no ingested file")]
+    assert [h.source for h in leftovers] == ["Lettre 9.9.docx"]
+
+
+def test_build_entries_matches_override_across_nfc_nfd_filenames(tmp_path):
+    # Drive stores 'août' decomposed (NFD); the override key is composed (NFC). They must match.
+    drive = tmp_path / "drive"
+    drive.mkdir()
+    notion_dir = tmp_path / "notion"
+    notion_dir.mkdir()
+    nfd_name = unicodedata.normalize("NFD", "Lettre 9.3 - août.docx")
+    nfc_key = unicodedata.normalize("NFC", "Lettre 9.3 - août.docx")
+    assert nfd_name != nfc_key  # guard: the two forms really differ
+    _write_docx(drive, nfd_name, "Une lettre sans date.")
+    overrides = {nfc_key: {"mode": "whole", "date": "31-07-2022"}}
+
+    entries, holdouts, stats = prose.build_entries(drive, notion_dir, overrides)
+
+    assert stats["overrides_unmatched"] == 0
+    assert [(e.date, e.content) for e in entries] == [("2022-07-31", "Une lettre sans date.")]
 
 
 def test_load_writes_rows_that_satisfy_the_schema(tmp_path):

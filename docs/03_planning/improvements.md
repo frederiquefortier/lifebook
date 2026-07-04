@@ -37,6 +37,51 @@ Track future enhancements and feature ideas. Review this file during planning se
 
 <!-- Add new entries below this line, newest first -->
 
+### 2026-07-04 - First-class handling for répertoires, goal-bilans, and prompts
+
+**Description:**
+- A set of letters are not journal prose: répertoires (curated overviews of other letters or
+  of a person, e.g. 3.8, 4.5, 4.6, 5.5), goal lists with a bilan (5.1, 5.4, and the "Mai
+  Goals" block inside 3.0.10), and prompts (2.7, 2.15, 7.0.5). They are currently *deferred*
+  via `date_overrides.toml` ([ADR-015](../01_building/decisions.md)) as `skip`, or collapsed
+  into one `whole` entry, so they stop polluting the corpus with bogus daily entries.
+- Give them a proper representation instead of skip-or-blob.
+
+**Motivation:**
+- These carry real content that belongs in the book, but not as fake journal entries: the
+  répertoires especially (the author: "I love it, but I don't know how to keep it as is").
+- `entry_types` already has `prompt`; the goal lists relate to the `goals` table in the
+  schema. Only the répertoire has no natural home yet.
+
+**Potential Approach:**
+- Decide a representation per kind: prompts -> `entry_type = 'prompt'`; goal lists -> the
+  `goals` table (added / checked / removed over time); répertoires -> a new entry type or a
+  dedicated render block.
+- Once modeled, replace the `skip` / `whole` overrides for those files with real ingestion.
+- Chase the "there should be more than 2" goal-bilan files: the override scan already flags
+  candidates (multi-month, non-chronological headers); confirm and route them here.
+
+**Owner / when:** the author decides the répertoire representation during the special-types
+pass, once the curation app ([ADR-006](../01_building/decisions.md)) exists to review these by
+hand; until then the `skip` overrides are the deliberate holding pattern, not an oversight.
+
+**Priority:**
+- [ ] High - Critical improvement
+- [x] Medium - Nice to have
+- [ ] Low - Future consideration
+
+**Dependencies:**
+- Schema decisions on new/extended entry types; the override layer
+  ([ADR-015](../01_building/decisions.md)) is the current holding pattern.
+
+**Status:**
+- [x] Proposed
+- [ ] In Progress
+- [ ] Completed
+- [ ] Deferred
+
+---
+
 ### 2026-06-24 - Bootstrap the theme list from the corpus
 
 > **Superseded by [ADR-012](../01_building/decisions.md) (2026-06-25).** The author chose to

@@ -24,12 +24,15 @@ from __future__ import annotations
 
 import argparse
 import csv
+import datetime as dt
 import hashlib
 import re
 import sqlite3
 import sys
+import tomllib
+import unicodedata
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from ..db import LOCAL_DIR, connect
@@ -41,6 +44,9 @@ ASSETS = LOCAL_DIR / "assets"
 DRIVE_DIR = ASSETS / "drive"
 NOTION_DIR = ASSETS / "notion"
 REPORT_PATH = LOCAL_DIR / "ingest_unresolved_dates.csv"  # gitignored (private filenames)
+# Manual date resolutions for letters the parser can't place on its own (date at the end,
+# répertoire, goals block, titled sections). Keyed by source filename, dates DD-MM-YYYY.
+OVERRIDES_PATH = LOCAL_DIR / "date_overrides.toml"  # gitignored (private dates)
 
 # Titled letters that are structured content, not prose. Deferred to a later pass.
 _SPECIAL = re.compile(
@@ -113,13 +119,199 @@ def _holdout(source: str, prose: list[str], reason: str) -> Holdout:
     return Holdout(source, len(prose), prose[0][:80] if prose else "", reason)
 
 
+def _iso(ddmmyyyy: str) -> str:
+    """'20-05-2020' -> '2020-05-20'. Raises on a malformed override date."""
+    day, month, year = (int(part) for part in ddmmyyyy.split("-"))
+    return dt.date(year, month, day).isoformat()
+
+
+def load_overrides(path: Path = OVERRIDES_PATH) -> dict[str, dict]:
+    """Read the manual date-resolution table, keyed by source filename (empty if absent)."""
+    if not path.exists():
+        return {}
+    with path.open("rb") as fh:
+        return tomllib.load(fh)
+
+
+def _split_by_leading_dates(
+    events: list[tuple[str, object]], source: str
+) -> tuple[list[Entry], list[str]]:
+    """Split events where each date header opens the passage that follows it.
+
+    Returns ``(entries, preamble)``; ``preamble`` is the prose before the first date
+    header, which has no day to attach to. This is the plain monthly-journal shape,
+    shared by the default path and the preamble/section overrides.
+    """
+    result: list[Entry] = []
+    preamble: list[str] = []
+    current: tuple[str, str | None] | None = None
+    buffer: list[str] = []
+
+    def flush() -> None:
+        if current and buffer:
+            content = "\n\n".join(buffer).strip()
+            if content:
+                date, end = current
+                result.append(Entry(date, "day", "journal", None, content, source, end))
+
+    for kind, val in events:
+        if kind == "date":
+            flush()
+            current, buffer = val, []
+        elif kind == "text":
+            (buffer if current is not None else preamble).append(val)
+    flush()
+    return result, preamble
+
+
+_OVERRIDE_MODES = frozenset({"whole", "preamble", "defer_preamble", "end_dates", "sections", "skip"})
+
+
+def _validate_override(source: str, override: dict) -> None:
+    """Fail fast on a malformed hand-authored override, naming the offending file.
+
+    The overrides file is edited by hand, so the one thing a crash must report is *which*
+    entry is wrong. Checks the mode is known and the keys each mode needs are present and
+    parseable, up front, so every mode reports errors the same helpful way.
+    """
+    def check_date(value: object, where: str) -> None:
+        try:
+            _iso(value)  # type: ignore[arg-type]
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise ValueError(f"{source}: {where} is not a valid DD-MM-YYYY date: {value!r}") from exc
+
+    mode = override.get("mode")
+    if mode not in _OVERRIDE_MODES:
+        raise ValueError(
+            f"{source}: unknown override mode {mode!r} (expected one of {sorted(_OVERRIDE_MODES)})"
+        )
+    if mode in ("whole", "preamble"):
+        if "date" not in override:
+            raise ValueError(f"{source}: {mode} override requires a 'date'")
+        check_date(override["date"], "date")
+    if mode == "sections":
+        secs = override.get("sections")
+        if not isinstance(secs, list) or not secs:
+            raise ValueError(f"{source}: sections override requires a non-empty 'sections' list")
+        for i, sec in enumerate(secs):
+            if not isinstance(sec, dict) or "date" not in sec or "title" not in sec:
+                raise ValueError(f"{source}: sections[{i}] needs both 'date' and 'title'")
+            check_date(sec["date"], f"sections[{i}].date")
+
+
+def _apply_override(
+    events: list[tuple[str, object]], label: str, source: str, stats: Counter, override: dict
+) -> tuple[list[Entry], Holdout | None]:
+    """Resolve a file the automatic classifier can't place, per its override entry.
+
+    Modes: ``whole`` (one entry at a fixed date, ignoring any internal headers),
+    ``preamble`` (the orphan preamble becomes its own entry, the rest splits normally),
+    ``defer_preamble`` (drop the preamble, keep the daily entries), ``end_dates`` (a date
+    header closes the passage above it, not the one below), ``sections`` (split on the
+    detected headers and attach the given titles), and ``skip`` (defer the whole file).
+    """
+    _validate_override(source, override)
+    mode = override["mode"]
+
+    if mode == "skip":
+        stats["deferred_files"] += 1
+        return [], None
+
+    if mode == "whole":
+        prose = [val for kind, val in events if kind == "text"]
+        if not prose:
+            # A whole override that yields nothing is almost certainly a mistake (wrong file,
+            # or the prose lives behind a recap block); surface it, don't silently drop it.
+            return [], _holdout(source, [], "whole override but file has no prose")
+        date = _iso(override["date"])
+        content = "\n\n".join(prose).strip()
+        if _REVIEW_LABEL.match(label):
+            stats["reviews"] += 1
+            return [Entry(date, "year", "birthday", label, content, source)], None
+        stats["single_letters"] += 1
+        # Match the automatic single-letter path, which titles the entry with its label.
+        return [Entry(date, "day", "journal", override.get("title", label), content, source)], None
+
+    if mode in ("preamble", "defer_preamble"):
+        result, preamble = _split_by_leading_dates(events, source)
+        holdout = None
+        if mode == "preamble":
+            if preamble:
+                date = _iso(override["date"])
+                result.insert(0, Entry(date, "day", "journal", None, "\n\n".join(preamble).strip(), source))
+            else:
+                # The override promised a dated preamble entry but the file has none; the
+                # date you set placed nothing. Surface it rather than pass quietly.
+                holdout = _holdout(source, [], "preamble override but file has no preamble")
+        elif preamble:  # defer_preamble: drop the leading block (e.g. a goals list)
+            stats["deferred_preamble"] += len(preamble)
+        stats["journal_files"] += 1
+        stats["journal_entries"] += len(result)
+        stats["ranges"] += sum(1 for entry in result if entry.end_date)
+        return result, holdout
+
+    if mode == "end_dates":
+        # Same shape as _split_by_leading_dates, but inverted: a date header closes the
+        # passage above it instead of opening the one below. Closing headers are assumed to
+        # be single dates; a range header would bind its end_date to the passage above.
+        result = []
+        buffer = []
+        for kind, val in events:
+            if kind == "date":
+                if buffer:
+                    date, end = val
+                    result.append(Entry(date, "day", "journal", None, "\n\n".join(buffer).strip(), source, end))
+                    buffer = []
+            elif kind == "text":
+                buffer.append(val)
+        stats["journal_files"] += 1
+        stats["journal_entries"] += len(result)
+        stats["ranges"] += sum(1 for entry in result if entry.end_date)
+        # Trailing prose with no closing date can't be placed; hold it out, never drop it.
+        holdout = _holdout(source, buffer, "prose after last end-date header") if buffer else None
+        return result, holdout
+
+    # mode == "sections"
+    secs = override["sections"]
+    # Strip each section's title line out of the prose stream (it becomes the entry title,
+    # not body text). Remove each title only once, at its first occurrence, so a body line
+    # that legitimately repeats the short title string later is not also deleted.
+    remaining = {sec["title"].strip() for sec in secs}
+    kept: list[tuple[str, object]] = []
+    for kind, val in events:
+        if kind == "text" and val.strip() in remaining:
+            remaining.discard(val.strip())
+            continue
+        kept.append((kind, val))
+    result, preamble = _split_by_leading_dates(kept, source)
+    if len(result) != len(secs):
+        raise ValueError(f"{source}: sections override expected {len(secs)} entries, got {len(result)}")
+    titled: list[Entry] = []
+    for entry, sec in zip(result, secs):
+        want = _iso(sec["date"])
+        if entry.date != want:
+            raise ValueError(f"{source}: section date {entry.date} does not match override {want}")
+        titled.append(replace(entry, title=sec["title"]))
+    stats["journal_files"] += 1
+    stats["journal_entries"] += len(titled)
+    # Prose before the first titled section has no section to attach to; hold it out so this
+    # mode keeps the module's "never silently dropped" invariant too.
+    holdout = _holdout(source, preamble, "prose before first titled section") if preamble else None
+    return titled, holdout
+
+
 def _split_file(
-    paras: list[str], label: str, source: str, stats: Counter
+    paras: list[str], label: str, source: str, stats: Counter, override: dict | None = None
 ) -> tuple[list[Entry], Holdout | None]:
     events = list(_scan(paras))
+    # Count recap blocks that were deferred while processing. A wholesale `skip` never
+    # processes the file, so its internal recap headers must not inflate the tally.
+    if not (override and override.get("mode") == "skip"):
+        stats["section_blocks_deferred"] += sum(1 for kind, _ in events if kind == "recap")
+    if override:
+        return _apply_override(events, label, source, stats, override)
     spans = [val for kind, val in events if kind == "date"]
     prose = [val for kind, val in events if kind == "text"]
-    stats["section_blocks_deferred"] += sum(1 for kind, _ in events if kind == "recap")
 
     # Whole-number letter: the year-in-review, one entry at year precision.
     if _REVIEW_LABEL.match(label):
@@ -150,29 +342,9 @@ def _split_file(
     # no day to attach to (often a continuation of the previous month's last entry); it is
     # held out for manual placement, never silently dropped.
     stats["journal_files"] += 1
-    result: list[Entry] = []
-    current: tuple[str, str | None] | None = None
-    buffer: list[str] = []
-    preamble: list[str] = []
-
-    def flush() -> None:
-        if current and buffer:
-            content = "\n\n".join(buffer).strip()
-            if content:
-                date, end = current
-                if end:
-                    stats["ranges"] += 1
-                result.append(Entry(date, "day", "journal", None, content, source, end))
-
-    for kind, val in events:
-        if kind == "date":
-            flush()
-            current, buffer = val, []
-        elif kind == "text":
-            (buffer if current is not None else preamble).append(val)
-
-    flush()
+    result, preamble = _split_by_leading_dates(events, source)
     stats["journal_entries"] += len(result)
+    stats["ranges"] += sum(1 for entry in result if entry.end_date)
     if preamble:
         stats["orphan_preamble"] += len(preamble)
         return result, _holdout(source, preamble, "prose before first date header")
@@ -180,17 +352,26 @@ def _split_file(
 
 
 def build_entries(
-    drive_dir: Path = DRIVE_DIR, notion_dir: Path = NOTION_DIR
+    drive_dir: Path = DRIVE_DIR,
+    notion_dir: Path = NOTION_DIR,
+    overrides: dict[str, dict] | None = None,
 ) -> tuple[list[Entry], list[Holdout], Counter]:
     """Parse both sources into entries + a hold-out list, without touching a DB.
 
     The two source dirs are arguments (defaulting to the real asset paths) so the
-    dedup + Drive/Notion merge can be exercised against fixtures.
+    dedup + Drive/Notion merge can be exercised against fixtures. ``overrides`` defaults
+    to the on-disk table; pass a dict to exercise the resolutions against fixtures.
     """
+    if overrides is None:
+        overrides = load_overrides()
+    # Drive filenames come off the filesystem in NFD for some accents ('août') and
+    # NFC for others, inconsistently; normalize both sides so an override key always matches.
+    overrides = {unicodedata.normalize("NFC", key): val for key, val in overrides.items()}
     entries: list[Entry] = []
     holdouts: list[Holdout] = []
     stats: Counter = Counter()
     seen: dict[str, str] = {}
+    consumed: set[str] = set()  # override keys that actually matched a processed file
 
     # Visit canonical names before their '(1)' copies so dedup keeps the canonical source.
     ordered = sorted(drive_dir.glob("Lettre*.docx"), key=lambda p: (bool(_DUP_SUFFIX.search(p.name)), p.name))
@@ -208,10 +389,21 @@ def build_entries(
             continue
         seen[digest] = path.name
 
-        file_entries, holdout = _split_file(paras, _label(path.name), path.name, stats)
+        key = unicodedata.normalize("NFC", path.name)
+        override = overrides.get(key)
+        if override is not None:
+            consumed.add(key)
+        file_entries, holdout = _split_file(paras, _label(path.name), path.name, stats, override)
         entries.extend(file_entries)
         if holdout:
             holdouts.append(holdout)
+
+    # An override that matched no file (a typo, or a name that lost the dedup race / is a
+    # special) would silently leave that letter to the automatic classifier: you'd believe a
+    # date is pinned when it isn't. Surface every leftover key instead of dropping it silently.
+    for key in sorted(set(overrides) - consumed):
+        stats["overrides_unmatched"] += 1
+        holdouts.append(Holdout(key, 0, "", "override key matched no ingested file (typo, lost dedup, or a special)"))
 
     for recent in notion.collect(notion_dir):
         entries.append(Entry(recent.date, "day", "journal", recent.title, recent.content, recent.source))
@@ -256,6 +448,8 @@ def _print_summary(entries: list[Entry], holdouts: list[Holdout], stats: Counter
     print("  recap blocks deferred:%3d" % stats["section_blocks_deferred"])
     print("  empty (skipped):      %3d" % stats["empty_skipped"])
     print("  orphan preamble paras:%3d  (held out, not dropped)" % stats["orphan_preamble"])
+    print("  overridden: skip files:%3d  preamble dropped:%3d" % (stats["deferred_files"], stats["deferred_preamble"]))
+    print("  overrides unmatched:  %3d  (keys that matched no file)" % stats["overrides_unmatched"])
     print("Notion-only kept:       %3d" % stats["notion_kept"])
     print("Held out (files):       %3d  -> %s" % (len(holdouts), REPORT_PATH))
     print("-" * 40)

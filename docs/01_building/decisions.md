@@ -25,6 +25,65 @@ Document architectural choices with context, alternatives considered, and trade-
 
 <!-- Add new entries below this line, newest first -->
 
+### ADR-015: A manual override layer for letters the parser cannot place (2026-07-04)
+
+**Context:**
+- The prose importer classifies each Drive letter by counting its standalone date headers
+  (0 / 1 / 2+). A tail of ~20 letters defeats that heuristic, each in a different way:
+  - dateless letters (no header at all);
+  - year-in-review letters whose date is written messily at the end (`1819 août 2024.`,
+    `12... nop 13 août 2020.`), so no header parses;
+  - files where the date sits at the *end* of each passage, which the header-then-content
+    parser silently misdates by one;
+  - répertoires and goal-bilans whose internal date lines get shredded into dozens of bogus
+    daily entries;
+  - titled two-part letters that need a title attached per section.
+  These were held out into a report, and "held out" means never ingested.
+- Fixing this in the parser's own heuristics would make the generic classifier fragile: a
+  date-at-end rule misfires on ordinary journals, and nothing reliably separates a répertoire
+  from a sporadic journal. And baking the private per-letter dates into git-tracked code
+  violates the out-of-git privacy rule ([ADR-004]).
+
+**Decision:**
+- Add a gitignored `data/local/date_overrides.toml`, keyed by source filename with DD-MM-YYYY
+  dates, that the importer consults per file before the automatic classifier. Modes: `whole`
+  (one entry at a fixed date, internal headers ignored), `preamble` (the orphan preamble
+  becomes its own dated entry, the rest splits normally), `defer_preamble` (drop a leading
+  goals block, keep the dailies), `end_dates` (a date header closes the passage *above* it),
+  `sections` (split on detected headers and attach given titles), and `skip` (defer the whole
+  file to a future special-type pass).
+- The overrides are *data* beside `life.db`, not code: the parser stays generic and private
+  dates never enter git. Filename lookup is NFC-normalized, because Drive stores some accents
+  decomposed (NFD `août`) and others precomposed.
+
+**Alternatives Considered:**
+- Extend the parser heuristics (auto date-at-end, auto répertoire detection) -> fragile; a
+  trailing-date rule misfires on normal journals, and no signal cleanly flags a répertoire.
+- Hardcode a dict in `prose.py` -> puts private journal dates into git-tracked source,
+  against the out-of-git rule ([ADR-004]).
+- Edit the source `.docx` to insert clean headers -> mutates raw upstream assets; the
+  pipeline is one-way and the raw files are read-only.
+- Leave them held out -> ~20 real entries (two of them birthday reviews) never ingested, and
+  the silently mis-ingested répertoires keep polluting the corpus with bogus dailies.
+
+**Consequences:**
+- Every held-out letter resolves (held-out files 20 -> 0); répertoires / goals / prompts are
+  explicitly deferred rather than shredded (removed dozens of bogus daily entries).
+- Surfaced a real parser bug: end-dated files were misdated by one passage (a St-Valentin
+  entry landed on 3 février instead of 14). `end_dates` fixes it; sibling files that are
+  start-dated were already correct.
+- To keep the module's "nothing is dropped silently" promise at the override layer itself,
+  the importer tracks which keys matched and holds out any leftover (a typo, or a name that
+  lost the dedup race or is a special), rather than letting that letter fall back to the
+  automatic classifier unnoticed. Hand-authored overrides are validated up front and fail
+  naming the offending file.
+- Trade-off: the overrides file is hand-maintained and lives outside git, so it is backed up
+  with `life.db` ([ADR-004]) and must be kept in sync if a source filename changes. The
+  deferred specials still need first-class modeling (tracked in
+  [improvements.md](../03_planning/improvements.md)).
+
+---
+
 ### ADR-014: `entries.end_date` for passages that span a range of days (2026-07-04)
 
 **Context:**
