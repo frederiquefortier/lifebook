@@ -33,6 +33,66 @@ Track AI-assisted development sessions with summaries, successes, challenges, an
 
 <!-- Add new entries below this line, newest first -->
 
+### 2026-07-04 - Prose ingestion: Drive-as-spine, end_date for ranges, bugs caught by tests
+
+**What We Worked On:**
+- First ingestion code, and the first look at the real backlog (`data/local/assets`: 276
+  Notion files, 119 Drive `.docx`). Built the prose importer in `src/lifebook/ingest/`
+  (`docx`, `dates`, `notion`, `prose`) plus `tests/test_ingest.py`.
+- **Source strategy, grilled one decision at a time** ([ADR-013]): Drive is the spine;
+  Notion per-entry metadata is near-empty (emotions 0/87, tags 6%, people 64%) so it is
+  dropped; only the recent Notion-only tail is kept (dated >= 2025-11-01, Lettres journal,
+  14 letters). Verified a clean seam (Drive in-body dates end 2025-08-16, zero overlap).
+  First pass is prose only: no people, emotions, tags, or structured specials.
+- **Classification learned from the files:** a whole-number `Lettre N.` is the year-in-review
+  (`birthday`/`year`); every other letter is classified by its count of standalone date
+  headers (0 = held out, 1 = single `journal` entry, 2+ = monthly journal split per passage),
+  not by the filename number, which drifts. The daily date-header format also drifts by era
+  (`1 janvier 2021` early, `Samedi, 1er janvier 2022` later); one regex covers both. `Entré
+  #NNN` filing markers and `… du mois :` / `WRAP UPS` recap blocks are stripped. Byte-twin
+  `(1)/(2)/(3)` downloads are deduped by body hash.
+- **Date ranges** (`1 au 23 novembre 2022`): added a nullable `entries.end_date`
+  ([ADR-014]), pre-cutover so no migration. `13(14)` resolves to the start day (13).
+- **Nothing dropped silently** (`entries.date` is NOT NULL): date-less letters, and prose
+  before a monthly file's first date header, are held out to `data/local/
+  ingest_unresolved_dates.csv`. Each imported entry keeps its origin in `entries.source`.
+- **Result** (dry run + temp-DB load): 1224 entries (1178 journal passages + 28 single
+  letters + 4 reviews + 14 Notion), 2 with `end_date`, 20 files held out (8 date-less +
+  12 with orphan preamble). Tests green. The real `life.db` is untouched; the `--commit`
+  cutover ([ADR-010]) is left for the author.
+- **Successive review rounds** hardened it: unified the recap-skip rule into one `_scan`
+  generator, fixed a monthly-path bug that silently dropped 101 pre-header prose paragraphs,
+  fixed year-6/7/8 reviews being misclassified because they are filed with `_` not `.`, added
+  `entries.source` provenance, and split `<w:br>`/`<w:tab>` so words do not fuse. Each fix
+  landed with a test that exercises the real code path, not a hand-built happy case.
+
+**What Went Well:**
+- Quantifying overlap and metadata coverage *before* coding made the "drop Notion metadata"
+  call obvious and avoided an expensive Notion-to-Drive matching step for data that was
+  0 to 6% populated.
+- Tests on synthetic paragraphs (no dependency on the private assets) caught two
+  silent-data-loss bugs before any real import (see [bugs.md]).
+- Cheap scans over the corpus corrected two wrong assumptions: the `Lettre N.x` number is
+  not a reliable join key (the hand-transfer renumbered), and the daily-date format changed
+  by era.
+
+**What Could We Do Better:**
+- The first date-header regex was year-only and silently under-matched the weekday-prefixed
+  eras, which briefly looked like "58 date-less journals." Sample across eras before
+  trusting one format.
+
+**Friction Points:**
+- `python` on this machine is the stray 2.7 ([ADR-008]); analysis scripts must run under
+  `uv run`. The Windows console is cp1252, so accented output needs `PYTHONIOENCODING=utf-8`.
+
+**Key Takeaways:**
+- For messy multi-source history, quantify overlap and metadata completeness first. The
+  cheap complete signal (dates) beat the expensive incomplete one (hand metadata).
+- Tests on synthetic input are the guardrail for a parser that moves or removes content:
+  both bugs here quietly dropped real prose and were invisible in a summary count.
+- Capture, do not collapse: `end_date` keeps the 2 spanning passages honest instead of
+  flattening them to a single day.
+
 ### 2026-06-25 - Themes seed: define the gate, freeze the list, full-life coverage
 
 **What We Worked On:**

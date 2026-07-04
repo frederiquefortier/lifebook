@@ -25,6 +25,97 @@ Document architectural choices with context, alternatives considered, and trade-
 
 <!-- Add new entries below this line, newest first -->
 
+### ADR-014: `entries.end_date` for passages that span a range of days (2026-07-04)
+
+**Context:**
+- A few backlog passages are written about a span rather than a day (`1e novembre au 23
+  novembre 2022`; `Samedi, 6 mai 2023 au lundi, 15 mai 2023`). Each is one block of
+  reflection, so it cannot be split into per-day entries, and the atomic "one entry = one
+  date" rule has no single date for it.
+- The schema stored only `date` + `date_precision` (day/week/month/year). We are
+  pre-cutover ([ADR-010]), so a schema change is a free edit now and a migration later.
+
+**Decision:**
+- Add a nullable `entries.end_date` (TEXT ISO date) with
+  `CHECK (end_date IS NULL OR (end_date GLOB '????-??-??' AND end_date >= date))`. A ranged
+  passage stores the start in `date` and the end in `end_date`; every other entry leaves it
+  null (a single-dated entry).
+- `date_precision` stays orthogonal: it says how precise the anchor date is; `end_date`
+  says whether the entry spans. A consumer may treat a null `end_date` as a single date.
+- `13(14) août 2021` (a letter begun the 13th, finished the 14th) resolves to the start day
+  (13) with no `end_date`; only explicit `X au Y` ranges get one.
+
+**Alternatives Considered:**
+- Start date + coarser precision (week/month) -> loses the exact end and fits badly
+  (`1-23 nov` is neither a clean week nor a month).
+- Start date, day precision (treat like `13(14)`) -> a 23-day span then looks identical to
+  a single day.
+- Hold the ~2 ranges out for manual entry -> avoids the model, but the author chose to
+  represent them faithfully while the change is free.
+
+**Consequences:**
+- The 2 spanning passages are captured without losing the span; the "capture detail you
+  cannot recover later" principle ([ADR-011]) holds.
+- One nullable column to carry in `schema.sql`, the importer, and `database.md`; the range
+  parser inherits the month/year of the left endpoint from the right.
+- Trade-off: consumers that care about spans must read `end_date`; those that do not can
+  ignore it.
+
+---
+
+### ADR-013: Backlog ingestion: Drive is the spine, prose first (2026-07-04)
+
+**Context:**
+- The backlog lives in two overlapping places: Word `.docx` in Google Drive (the fuller
+  original, ~101 unique letters) and a Notion "Journals" template (a hand-curated but
+  partial subset). The author had begun transferring Drive to Notion by hand, renumbering
+  along the way. A strategy was needed before writing the importer: which source is
+  authoritative, and how to avoid importing the same content twice.
+
+**Decision:**
+- **Drive is the spine** for entry bodies and dates. Drive letters carry their own French
+  dates in-body, so Notion is not needed for dating.
+- **Notion per-entry metadata is dropped.** Coverage is near-empty (emotions 0/87, tags 6%,
+  people 64%, all re-derivable later by the classifier). Matching Notion to Drive to salvage
+  it would be costly (the renumbering makes the `Lettre N.x` number an unreliable join key)
+  for almost no gain.
+- **Keep only the Notion-only tail:** entries dated >= 2025-11-01 in the Lettres journal (14
+  letters typed straight into Notion). Drive prose ends 2025-08-16, so the two sources meet
+  at a clean seam and no cross-source dedup is required. Recent Bingo/Abécédaire Notion pages
+  are specials, excluded here.
+- **First pass is prose only:** no people, emotions, tags, or structured specials (bingo,
+  abécédaire, music tops, bucketlist; the "poésie" file is a compilation of other letters and
+  is ignored). Later passes handle those.
+- **Within-Drive duplicates** (byte-twin `(1)/(2)/(3)` downloads) are removed by hashing the
+  body text, not by filename.
+- **Date-less letters are held out, not guessed** (`entries.date` is NOT NULL): reported to a
+  CSV for manual dating. Prose that appears before the first date header of a monthly file
+  (often a continuation of the previous month's last entry) is held out the same way, never
+  silently dropped.
+- **Provenance is kept.** Each imported entry records its originating file or Notion page in
+  the nullable `entries.source`, so the one-way import stays verifiable against the originals
+  before they are retired ([ADR-004]). App-created entries leave it null.
+
+**Alternatives Considered:**
+- Notion as the spine -> its subset misses the untransferred majority and its bodies are no
+  richer; only its dates and the Personnes list have value.
+- Match Notion to Drive to merge metadata -> expensive fuzzy matching (renumbered, sometimes
+  edited) for metadata that is 0 to 6% populated.
+- Union both fully as separate entries and dedup by hand -> unnecessary once the seam is shown
+  to be clean; the tail is only 14 entries.
+- Infer missing dates from the filing numbers -> the numbering is "just filing"
+  ([ingestion.md](ingestion.md)) and guessing dates corrupts a lifetime archive.
+
+**Consequences:**
+- One authoritative source for bodies, hand-work reused only for the recent tail, and no
+  double-import (guaranteed by the date seam). ~1224 prose entries in pass 1; 8 held out;
+  specials and people deferred.
+- Trade-off: Notion's hand-tagged people are not reused now; the classifier re-derives people
+  later. The Personnes list (75 people, de-aliased, with relationships) is noted for the
+  deferred people pass.
+
+---
+
 ### ADR-012: Themes: frozen, full-life, append-only, no `other` (2026-06-25)
 
 **Context:**

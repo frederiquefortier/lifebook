@@ -150,12 +150,21 @@ CREATE TABLE top_categories (
 CREATE TABLE entries (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
     date           TEXT NOT NULL CHECK (date GLOB '????-??-??'),
+    -- Optional span end for a passage covering a range of days ('1 au 23 novembre').
+    -- NULL for the vast majority: a single-dated entry. Must not precede `date`.
+    -- `date_precision` stays 'day' for a range (both ends are known days); the span
+    -- lives in `end_date`, so rendering checks end_date, not precision, to detect a range.
+    end_date       TEXT CHECK (end_date IS NULL OR
+                       (end_date GLOB '????-??-??' AND end_date >= date)),
     date_precision TEXT NOT NULL DEFAULT 'day'
                        CHECK (date_precision IN ('day', 'week', 'month', 'year')),
     entry_type_id  INTEGER NOT NULL REFERENCES entry_types(id) ON DELETE RESTRICT,
     place_id       INTEGER REFERENCES places(id) ON DELETE RESTRICT,
     title          TEXT,
     content        TEXT NOT NULL,
+    -- Provenance for bulk-imported entries: the originating .docx / Notion page.
+    -- NULL for entries created later in the app. Kept so an import stays traceable.
+    source         TEXT,
     nsfw_level     INTEGER NOT NULL DEFAULT 0 CHECK (nsfw_level BETWEEN 0 AND 3),
     created_at     TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at     TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP

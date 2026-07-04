@@ -76,11 +76,13 @@ prose-shaped types (see `entry_types`). Structured artifacts (`books`, `alphabet
 |---|---|
 | id | INTEGER |
 | date | DATE |
+| end_date | DATE |
 | date_precision | TEXT |
 | entry_type_id | INTEGER |
 | place_id | INTEGER |
 | title | TEXT |
 | content | TEXT |
+| source | TEXT |
 | nsfw_level | INTEGER |
 | created_at | DATETIME |
 | updated_at | DATETIME |
@@ -89,6 +91,14 @@ prose-shaped types (see `entry_types`). Structured artifacts (`books`, `alphabet
 a week (fun facts), a month, or a year (the `birthday`). `date` stores the
 best/anchor date; precision tells rendering whether to show "jeudi 1 décembre 2022" vs
 "décembre 2022".
+
+`end_date` is normally null. A few passages cover a span of days ("1 au 23 novembre
+2022"); those store the range's start in `date` and its end in `end_date` (with a
+`CHECK` that it is a valid date not before `date`), so the span is never lost.
+
+`source` records where a bulk-imported entry came from (its `.docx` or Notion page), so
+the one-way import stays traceable to verify against the originals. Entries later created
+in the app leave it null.
 
 `place_id` → `places` = where you were for this entry (nullable; most entries are
 home or unknown). One place per entry; the geography of a trip is derived by filtering
