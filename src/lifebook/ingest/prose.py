@@ -414,7 +414,16 @@ def build_entries(
 
 
 def load(con: sqlite3.Connection, entries: list[Entry]) -> int:
-    """Insert entries; returns the number of rows written."""
+    """Replace the importer's rows, then insert; returns the number written.
+
+    Idempotent: every call first clears the rows this importer owns (those with a
+    ``source``) and re-inserts, so re-running to pick up a parser fix never duplicates.
+    Entries created later in the app (``source`` NULL) are left untouched. Clearing an
+    imported entry cascades to its NLP tags (entry_people / entry_themes / entry_emotions);
+    re-running the extractor regenerates them. Runs in the caller's transaction, so the
+    delete and insert commit together.
+    """
+    con.execute("DELETE FROM entries WHERE source IS NOT NULL")
     types = {r["name"]: r["id"] for r in con.execute("SELECT id, name FROM entry_types")}
     con.executemany(
         "INSERT INTO entries "

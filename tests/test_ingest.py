@@ -200,6 +200,27 @@ def test_range_round_trips_through_db_and_check_rejects_reversed(tmp_path):
     con.close()
 
 
+def test_load_is_idempotent_and_spares_app_rows(tmp_path):
+    con = connect(tmp_path / "t.db")
+    con.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
+    # An app-authored row has no source; the importer must never touch it.
+    con.execute(
+        "INSERT INTO entries (date, date_precision, entry_type_id, content, source) "
+        "VALUES ('2023-01-01', 'day', 1, 'saisi dans l app', NULL)"
+    )
+    con.commit()
+
+    imported = [prose.Entry("2022-11-01", "day", "journal", None, "corps", "5.0.4.docx")]
+    prose.load(con, imported)
+    con.commit()
+    prose.load(con, imported)  # re-run: must replace, not duplicate
+    con.commit()
+
+    assert con.execute("SELECT count(*) FROM entries WHERE source IS NOT NULL").fetchone()[0] == 1
+    assert con.execute("SELECT count(*) FROM entries WHERE source IS NULL").fetchone()[0] == 1
+    con.close()
+
+
 def test_override_whole_collapses_internal_headers():
     # A letter with mid-text date lines becomes a single entry; the date lines are dropped.
     paras = ["Cher X,", "Corps un.", "17 mai 2020", "Corps deux.", "20 mai 2020."]
